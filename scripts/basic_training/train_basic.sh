@@ -1,6 +1,6 @@
 #!/bin/bash 
-PWD=$(pwd)
-CGNHOME=/home/skvara/work/counterfactual_ad/counterfactual_generative_networks
-cd $CGNHOME
+DIR=$(pwd)
+SGADHOME=/home/skvara/work/counterfactual_ad/sgad
+cd $SGADHOME
 python mnists/train_cgn.py --cfg mnists/experiments/cgn_wildlife_MNIST/cfg.yaml
-cd $PWD
+cd $DIR
