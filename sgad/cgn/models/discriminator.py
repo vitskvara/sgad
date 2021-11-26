@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from utils import init_net
+from sgad.utils import init_net
 
 class DiscLin(nn.Module):
     def __init__(self, n_classes, ndf, img_shape=[3, 32, 32]):

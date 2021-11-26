@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils import get_norm_layer, init_net, choose_rand_patches, Patch2Image, RandomCrop
+from sgad.utils import get_norm_layer, init_net, choose_rand_patches, Patch2Image, RandomCrop
 
 class Reshape(nn.Module):
     def __init__(self, *args):

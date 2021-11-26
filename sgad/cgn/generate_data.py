@@ -6,25 +6,25 @@ import torch
 import repackage
 repackage.up()
 
-from mnists.train_cgn import CGN
-from mnists.dataloader import get_dataloaders
+from cgn.train_cgn import CGN
+from cgn.dataloader import get_dataloaders
 from utils import load_cfg
 
-def generate_cf_dataset(cgn, path, dataset_size, no_cfs, device):
+def generate_cf_dataset(model, path, dataset_size, no_cfs, device):
     x, y = [], []
-    cgn.batch_size = 100
+    model.batch_size = 100
     n_classes = 10
 
-    total_iters = int(dataset_size // cgn.batch_size // no_cfs)
+    total_iters = int(dataset_size // model.batch_size // no_cfs)
     for _ in trange(total_iters):
 
         # generate initial mask
-        y_gen = torch.randint(n_classes, (cgn.batch_size,)).to(device)
-        mask, _, _ = cgn(y_gen)
+        y_gen = torch.randint(n_classes, (model.batch_size,)).to(device)
+        mask, _, _ = model(y_gen)
 
         # generate counterfactuals, i.e., same masks, foreground/background vary
         for _ in range(no_cfs):
-            _, foreground, background = cgn(y_gen, counterfactual=True)
+            _, foreground, background = model(y_gen, counterfactual=True)
             x_gen = mask * foreground + (1 - mask) * background
 
             x.append(x_gen.detach().cpu())
@@ -80,12 +80,12 @@ if __name__ == "__main__":
     else:
         # load model
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        cgn = CGN()
-        cgn.load_state_dict(torch.load(args.weight_path, 'cpu'))
-        cgn.to(device).eval()
+        model = CGN()
+        model.load_state_dict(torch.load(args.weight_path, 'cpu'))
+        model.to(device).eval()
 
         # generate
         print(f"Generating the counterfactual {args.dataset} of size {args.dataset_size}")
-        generate_cf_dataset(cgn=cgn, path=os.path.join(args.outpath, args.dataset + '_counterfactual.pth'),
+        generate_cf_dataset(cgn=model, path=os.path.join(args.outpath, args.dataset + '_counterfactual.pth'),
                             dataset_size=args.dataset_size, no_cfs=args.no_cfs,
                             device=device)

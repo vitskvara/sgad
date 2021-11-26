@@ -5,6 +5,6 @@ def save_cfg(cfg, path):
         with redirect_stdout(f): print(cfg.dump())
 
 def load_cfg(dir):
-    from mnists.config import cfg
+    from cgn.config import cfg
     cfg.merge_from_file(dir)
     return cfg

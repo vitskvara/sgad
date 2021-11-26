@@ -11,9 +11,9 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image
 
-from mnists.config import get_cfg_defaults
-from mnists.dataloader import get_dataloaders
-from mnists.models import CGN, DiscLin, DiscConv
+from cgn.config import get_cfg_defaults
+from cgn.dataloader import get_dataloaders
+from cgn.models import CGN, DiscLin, DiscConv
 from utils import save_cfg, load_cfg, children, hook_outputs, Optimizers
 from shared.losses import BinaryLoss, PerceptualLoss
 
@@ -21,11 +21,11 @@ def save(x, path, n_row, sz=64):
     x = F.interpolate(x, (sz, sz))
     save_image(x.data, path, nrow=n_row, normalize=True, padding=2)
 
-def sample_image(cgn, sample_path, batches_done, device, n_row=3, n_classes=10):
+def sample_image(model, sample_path, batches_done, device, n_row=3, n_classes=10):
     """Saves a grid of generated digits"""
     y_gen = np.arange(n_classes).repeat(n_row)
     y_gen = torch.LongTensor(y_gen).to(device)
-    mask, foreground, background = cgn(y_gen)
+    mask, foreground, background = model(y_gen)
     x_gen = mask * foreground + (1 - mask) * background
 
     save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_row)
@@ -33,7 +33,7 @@ def sample_image(cgn, sample_path, batches_done, device, n_row=3, n_classes=10):
     save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_row)
     save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_row)
 
-def fit(cfg, cgn, discriminator, dataloader, opts, losses, device):
+def fit(cfg, model, discriminator, dataloader, opts, losses, device):
 
     # directories for experiments
     time_str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -68,7 +68,7 @@ def fit(cfg, cgn, discriminator, dataloader, opts, losses, device):
             y_gen = torch.randint(cfg.MODEL.N_CLASSES, (len(y_gt),)).to(device)
 
             # Generate a batch of images
-            mask, foreground, background = cgn(y_gen)
+            mask, foreground, background = model(y_gen)
             x_gen = mask * foreground + (1 - mask) * background
 
             # Calc Losses
@@ -107,8 +107,8 @@ def fit(cfg, cgn, discriminator, dataloader, opts, losses, device):
             batches_done = epoch * len(dataloader) + i
             if batches_done % cfg.LOG.SAVE_ITER == 0:
                 print(f"Saving samples and weights to {model_path}")
-                sample_image(cgn, sample_path, batches_done, device, n_row=3)
-                torch.save(cgn.state_dict(), f"{weights_path}/ckp_{batches_done:d}.pth")
+                sample_image(model, sample_path, batches_done, device, n_row=3)
+                torch.save(model.state_dict(), f"{weights_path}/ckp_{batches_done:d}.pth")
 
             # Logging
             if cfg.LOG.LOSSES:
@@ -119,7 +119,7 @@ def fit(cfg, cgn, discriminator, dataloader, opts, losses, device):
 
 def main(cfg):
     # model init
-    cgn = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,
+    model = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,
               ngf=cfg.MODEL.NGF, init_type=cfg.MODEL.INIT_TYPE,
               init_gain=cfg.MODEL.INIT_GAIN)
     Discriminator = DiscLin if cfg.MODEL.DISC == 'linear' else DiscConv
@@ -137,16 +137,16 @@ def main(cfg):
 
     # Optimizers
     opts = Optimizers()
-    opts.set('generator', cgn, lr=cfg.LR.LR, betas=cfg.LR.BETAS)
+    opts.set('generator', model, lr=cfg.LR.LR, betas=cfg.LR.BETAS)
     opts.set('discriminator', discriminator, lr=cfg.LR.LR, betas=cfg.LR.BETAS)
 
     # push to device and train
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    cgn = cgn.to(device)
+    model = model.to(device)
     discriminator = discriminator.to(device)
     losses = (l.to(device) for l in losses)
 
-    fit(cfg, cgn, discriminator, dataloader, opts, losses, device)
+    fit(cfg, model, discriminator, dataloader, opts, losses, device)
 
 def merge_args_and_cfg(args, cfg):
     cfg.MODEL_NAME = args.model_name
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='',
                         help="path to a cfg file")
-    parser.add_argument('--outpath', default='./mnists/experiments',
+    parser.add_argument('--outpath', default='./cgn/experiments',
                         help='where the model is going to be saved')
     parser.add_argument('--model_name', default='tmp',
                         help='Weights and samples will be saved under experiments/model_name')

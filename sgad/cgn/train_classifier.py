@@ -8,8 +8,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
-from mnists.models.classifier import CNN
-from mnists.dataloader import get_tensor_dataloaders, TENSOR_DATASETS
+from cgn.models.classifier import CNN
+from cgn.dataloader import get_tensor_dataloaders, TENSOR_DATASETS
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
