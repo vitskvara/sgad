@@ -56,7 +56,7 @@ class DoubleColoredMNIST(Dataset):
         self.mnist_sz = 32
 
         # get mnist
-        mnist = datasets.MNIST(os.path.join(LOCALDIR, '/data'), train=True, download=True)
+        mnist = datasets.MNIST(os.path.join(LOCALDIR, 'data'), train=True, download=True)
         if train:
             ims, labels = mnist.data[:50000], mnist.targets[:50000]
         else:
@@ -199,8 +199,8 @@ def get_tensor_dataloaders(dataset, batch_size=64):
         ds_train = TensorDataset(*tensor[:2])
         dataset = dataset.replace('_counterfactual', '')
     else:
-        ds_train = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'cgn/data/{dataset}_train.pth')))
-    ds_test = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'cgn/data/{dataset}_test.pth')))
+        ds_train = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'data/{dataset}_train.pth')))
+    ds_test = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'data/{dataset}_test.pth')))
 
     dl_train = DataLoader(ds_train, batch_size=batch_size, num_workers=4,
                           shuffle=True, pin_memory=True)
