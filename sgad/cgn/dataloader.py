@@ -10,10 +10,13 @@ from torchvision import transforms
 from torchvision import datasets
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 
+import os
+LOCALDIR = os.path.abspath(os.path.dirname(__file__))
+
 class ColoredMNIST(Dataset):
     def __init__(self, train, color_var=0.02):
         # get the colored mnist
-        self.data_path = 'cgn/data/colored_mnist/mnist_10color_jitter_var_%.03f.npy'%color_var
+        self.data_path = os.path.join(LOCALDIR, 'data/colored_mnist/mnist_10color_jitter_var_%.03f.npy'%color_var)
         data_dic = np.load(self.data_path, encoding='latin1', allow_pickle=True).item()
 
         if train:
@@ -53,7 +56,7 @@ class DoubleColoredMNIST(Dataset):
         self.mnist_sz = 32
 
         # get mnist
-        mnist = datasets.MNIST('cgn/data', train=True, download=True)
+        mnist = datasets.MNIST(os.path.join(LOCALDIR, '/data'), train=True, download=True)
         if train:
             ims, labels = mnist.data[:50000], mnist.targets[:50000]
         else:
@@ -115,7 +118,7 @@ class WildlifeMNIST(Dataset):
         inter_sz = 150
 
         # get mnist
-        mnist = datasets.MNIST('cgn/data', train=True, download=True)
+        mnist = datasets.MNIST(os.path.join(LOCALDIR, 'data'), train=True, download=True)
         if train:
             ims, labels = mnist.data[:50000], mnist.targets[:50000]
         else:
@@ -125,9 +128,9 @@ class WildlifeMNIST(Dataset):
         self.labels = labels
 
         # texture paths
-        background_dir = Path('.') / 'cgn' / 'data' / 'textures' / 'background'
+        background_dir = Path(LOCALDIR) / 'data' / 'textures' / 'background'
         self.background_textures = sorted([im for im in background_dir.glob('*.jpg')])
-        object_dir = Path('.') / 'cgn' / 'data' / 'textures' / 'object'
+        object_dir = Path(LOCALDIR) / 'data' / 'textures' / 'object'
         self.object_textures = sorted([im for im in object_dir.glob('*.jpg')])
 
         self.T_texture = transforms.Compose([
@@ -192,12 +195,12 @@ def get_tensor_dataloaders(dataset, batch_size=64):
     assert dataset in TENSOR_DATASETS, f"Unknown datasets {dataset}"
 
     if 'counterfactual' in dataset:
-        tensor = torch.load(f'cgn/data/{dataset}.pth')
+        tensor = torch.load(os.path.join(LOCALDIR, f'data/{dataset}.pth'))
         ds_train = TensorDataset(*tensor[:2])
         dataset = dataset.replace('_counterfactual', '')
     else:
-        ds_train = TensorDataset(*torch.load(f'cgn/data/{dataset}_train.pth'))
-    ds_test = TensorDataset(*torch.load(f'cgn/data/{dataset}_test.pth'))
+        ds_train = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'cgn/data/{dataset}_train.pth')))
+    ds_test = TensorDataset(*torch.load(os.path.join(LOCALDIR, f'cgn/data/{dataset}_test.pth')))
 
     dl_train = DataLoader(ds_train, batch_size=batch_size, num_workers=4,
                           shuffle=True, pin_memory=True)
