@@ -12,6 +12,47 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 import os
 LOCALDIR = os.path.abspath(os.path.dirname(__file__))
+from sgad.utils import load_cifar10, train_val_test_inds, split_data_labels
+
+class CIFAR10(Dataset):
+    def __init__(self):
+        raw_data = load_cifar10()
+        
+        self.data = tensor(raw_data[0])
+        self.labels = raw_data[1]
+
+    def __getitem__(self, idx):
+        return self.ims[idx], self.labels[idx]
+
+    def __len__(self):
+        return len(self.labels)
+
+    def split(self, ratios=(0.6,0.2,0.2), seed=None):
+        split_inds = train_val_test_inds(np.arange(len(self)))
+        tr_set, val_set, tst_set = split_data_labels(self.data, self.labels, split_inds)
+        return CIFAR10Subset(*tr_set), CIFAR10Subset(*val_set), CIFAR10Subset(*tst_set)
+
+class CIFAR10Subset(Dataset):
+    def __init__(self, data, labels):
+        self.ims = data
+        self.labels = labels
+        self.T = transforms.Normalize(
+                (0.5, 0.5, 0.5),
+                (0.5, 0.5, 0.5),
+            )
+
+    def __getitem__(self, idx):
+        ims, labels = self.T(self.ims[idx]), self.labels[idx]
+
+        ret = {
+            'ims': ims,
+            'labels': labels,
+        }
+
+        return ret
+
+    def __len__(self):
+        return len(self.labels)
 
 class ColoredMNIST(Dataset):
     def __init__(self, train, color_var=0.02):

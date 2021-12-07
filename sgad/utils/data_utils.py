@@ -25,3 +25,25 @@ def load_cifar10():
     data = np.concatenate([x[b'data'].reshape(10000, 3, 32, 32) for x in all_data])/255
     labels = np.concatenate([x[b'labels'] for x in all_data])
     return data, labels
+
+def train_val_test_inds(indices, ratios=(0.6,0.2,0.2), seed=None):
+    if (sum(ratios) != 1.0 or len(ratios) != 3):
+        raise ValueError("ratios must be a vector of length 3 that sums up to 1")
+
+    # set seed
+    rng = np.random.RandomState() if seed == None else np.random.RandomState(seed)
+    _indices = rng.permutation(indices)
+
+    # set number of samples in individual subsets
+    n = len(indices)
+    ns = np.cumsum(np.floor(n*np.array(ratios)).astype(int))
+
+    # return the sets of indices
+    return _indices[0:ns[0]], _indices[ns[0]+1:ns[1]], _indices[ns[1]+1:ns[2]]
+
+def split_data_labels(data, labels, split_inds):
+    tr_inds, val_inds, tst_inds = split_inds
+    tr_data, val_data, tst_data = data[tr_inds], data[val_inds], data[tst_inds]
+    tr_labels, val_labels, tst_labels = labels[tr_inds], labels[val_inds], labels[tst_inds]
+
+    return (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels)
