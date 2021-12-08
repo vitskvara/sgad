@@ -3,12 +3,10 @@
 DIR=$(pwd)
 SGADHOME=/home/skvara/work/counterfactual_ad/sgad/sgad
 WEIGHTPATH=$1
-DATASET=$2
-SAVEDIR=$3
-OUTPATH=/home/skvara/work/counterfactual_ad/data/cgn_generated/$DATASET/$SAVEDIR
+SAVEDIR=$2
+OUTPATH=/home/skvara/work/counterfactual_ad/data/cgn_generated/$SAVEDIR
 cd $SGADHOME
 python cgn/generate_data.py \
 	--weight_path $WEIGHTPATH \
-	--dataset $DATASET --no_cfs 10 --dataset_size 100000 --outpath=$OUTPATH
+	--dataset cifar10 --no_cfs 10 --dataset_size 100000 --outpath=$OUTPATH
 cd $DIR
-python save_generated_images.py $OUTPATH/${DATASET}_counterfactual.pth

@@ -5,6 +5,7 @@ import os
 import torch
 import repackage
 repackage.up()
+import os
 
 from cgn.train_cgn import CGN
 from cgn.dataloader import get_dataloaders
@@ -50,7 +51,7 @@ def generate_dataset(dl, path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset',
-                        choices=['colored_MNIST', 'double_colored_MNIST', 'wildlife_MNIST'],
+                        choices=['cifar10', 'colored_MNIST', 'double_colored_MNIST', 'wildlife_MNIST'],
                         help='Name of the dataset. Make sure the name and the weight_path match')
     parser.add_argument('--weight_path', default='',
                         help='Provide path to .pth of the model')
@@ -78,14 +79,22 @@ if __name__ == "__main__":
 
     # Generate counterfactual dataset
     else:
+        # modelid
+        modelid = args.weight_path.split("model_id-")[1][0:14]
+        cf_file = os.path.abspath(os.path.join(os.path.dirname(args.weight_path), "../cfg.yaml"))
+        print(cf_file)
+        cfg = load_cfg(cf_file)
+
         # load model
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = CGN()
+        model = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,
+              ngf=cfg.MODEL.NGF, init_type=cfg.MODEL.INIT_TYPE,
+              init_gain=cfg.MODEL.INIT_GAIN)
         model.load_state_dict(torch.load(args.weight_path, 'cpu'))
         model.to(device).eval()
 
         # generate
         print(f"Generating the counterfactual {args.dataset} of size {args.dataset_size}")
-        generate_cf_dataset(cgn=model, path=os.path.join(args.outpath, args.dataset + '_counterfactual.pth'),
+        generate_cf_dataset(model=model, path=os.path.join(args.outpath, modelid + '_counterfactual.pth'),
                             dataset_size=args.dataset_size, no_cfs=args.no_cfs,
                             device=device)

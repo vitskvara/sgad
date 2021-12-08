@@ -18,8 +18,8 @@ class CIFAR10(Dataset):
     def __init__(self):
         raw_data = load_cifar10()
         
-        self.data = tensor(raw_data[0])
-        self.labels = raw_data[1]
+        self.data = tensor(raw_data[0]).float()
+        self.labels = tensor(raw_data[1])
 
     def __getitem__(self, idx):
         return self.ims[idx], self.labels[idx]
@@ -42,17 +42,26 @@ class CIFAR10Subset(Dataset):
             )
 
     def __getitem__(self, idx):
-        ims, labels = self.T(self.ims[idx]), self.labels[idx]
-
         ret = {
-            'ims': ims,
-            'labels': labels,
+            'ims': self.T(self.ims[idx]),
+            'labels': self.labels[idx],
         }
 
         return ret
 
     def __len__(self):
-        return len(self.labels)
+        return self.labels.shape[0]
+
+def get_cifar_dataloaders(batch_size, workers, **kwargs):
+    cifar = CIFAR10()
+    tr_set, val_set, tst_set = cifar.split(**kwargs)
+    tr_loader = DataLoader(tr_set, batch_size=batch_size,
+                          shuffle=True, num_workers=workers)
+    val_loader = DataLoader(val_set, batch_size=batch_size,
+                          shuffle=True, num_workers=workers)
+    tst_loader = DataLoader(tst_set, batch_size=batch_size,
+                          shuffle=True, num_workers=workers)
+    return tr_loader, val_loader, tst_loader
 
 class ColoredMNIST(Dataset):
     def __init__(self, train, color_var=0.02):

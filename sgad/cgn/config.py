@@ -6,6 +6,7 @@ cfg = __C
 
 # General
 __C.MODEL_NAME = 'tmp'
+__C.OUTPATH = ''
 
 # Logging
 __C.LOG = CN()
@@ -29,6 +30,7 @@ __C.TRAIN.BATCH_SIZE = 64
 __C.TRAIN.WORKERS = 12
 __C.TRAIN.COLOR_VAR = 0.02
 __C.TRAIN.EPOCHS = 5
+__C.TRAIN.SEED = None
 
 # Loss Weigths
 __C.LAMBDAS = CN()
