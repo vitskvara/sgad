@@ -27,10 +27,32 @@ class CIFAR10(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def split(self, ratios=(0.6,0.2,0.2), seed=None):
-        split_inds = train_val_test_inds(np.arange(len(self)))
-        tr_set, val_set, tst_set = split_data_labels(self.data, self.labels, split_inds)
-        return CIFAR10Subset(*tr_set), CIFAR10Subset(*val_set), CIFAR10Subset(*tst_set)
+    def split(self, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
+        if target_class is None:
+            split_inds = train_val_test_inds(np.arange(len(self)), ratios=ratios, seed=seed)
+            (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels) = split_data_labels(self.data, self.labels, split_inds)
+        else:
+            # split normal data
+            n_data = self.data[self.labels == target_class]
+            n_labels = torch.zeros(n_data.shape[0]).long()
+            n_split_inds = train_val_test_inds(np.arange(n_data.shape[0]), ratios=ratios, seed=seed)
+            (n_tr_data, n_tr_labels), (n_val_data, n_val_labels), (n_tst_data, n_tst_labels) = split_data_labels(n_data, n_labels, n_split_inds)
+
+            # split anomalous data
+            a_data = self.data[self.labels != target_class]
+            a_labels = torch.ones(a_data.shape[0]).long()
+            a_split_inds = train_val_test_inds(np.arange(a_data.shape[0]), ratios=(0,0.5,0.5), seed=seed)
+            (a_tr_data, a_tr_labels), (a_val_data, a_val_labels), (a_tst_data, a_tst_labels) = split_data_labels(a_data, a_labels, a_split_inds)
+
+            # put it together
+            tr_data = n_tr_data
+            tr_labels =n_tr_labels
+            val_data = torch.cat((n_val_data, a_val_data))
+            val_labels = torch.cat((n_val_labels, a_val_labels))
+            tst_data = torch.cat((n_tst_data, a_tst_data))
+            tst_labels = torch.cat((n_tst_labels, a_tst_labels))
+
+        return CIFAR10Subset(tr_data, tr_labels), CIFAR10Subset(val_data, val_labels), CIFAR10Subset(tst_data, tst_labels)
 
 class CIFAR10Subset(Dataset):
     def __init__(self, data, labels):

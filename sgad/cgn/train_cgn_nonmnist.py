@@ -132,7 +132,7 @@ def main(cfg):
     # get data
     if cfg.TRAIN.DATASET == "cifar10":
         dataloaders = get_cifar_dataloaders(seed=cfg.TRAIN.SEED, batch_size=cfg.TRAIN.BATCH_SIZE,
-            workers=cfg.TRAIN.WORKERS)
+            workers=cfg.TRAIN.WORKERS, target_class=cfg.TRAIN.TARGET_CLASS)
     else:
         raise TypeError(f"unknown dataset {cfg.TRAIN.DATASET}")
 
@@ -160,7 +160,9 @@ def merge_args_and_cfg(args, cfg):
     cfg.TRAIN.EPOCHS = cfg.TRAIN.EPOCHS if args.epochs == -1 else args.epochs
     cfg.TRAIN.BATCH_SIZE = cfg.TRAIN.BATCH_SIZE if args.batch_size == -1 else args.batch_size
     cfg.TRAIN.SEED = cfg.TRAIN.SEED if args.seed is None else args.seed
+    cfg.TRAIN.TARGET_CLASS = cfg.TRAIN.TARGET_CLASS if args.target_class == -1 else args.target_class
     cfg.OUTPATH = args.outpath
+    cfg.MODEL.N_CLASSES = cfg.MODEL.N_CLASSES if cfg.TRAIN.TARGET_CLASS is None else 1
     return cfg
 
 if __name__ == "__main__":
@@ -177,6 +179,8 @@ if __name__ == "__main__":
                         help="size of the batches")
     parser.add_argument("--seed", default=None,
                         help="seed for datasplit")
+    parser.add_argument("--target_class", type=int, default=-1,
+                        help="target class")
     args = parser.parse_args()
 
     # get cfg

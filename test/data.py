@@ -22,6 +22,9 @@ inds2 = train_val_test_inds(indices, seed=3)
 cifar = CIFAR10()
 tr_loader, val_loader, tst_loader = cifar.split(seed=2)
 
+target_class = 1
+an_tr_loader, an_val_loader, an_tst_loader = cifar.split(seed=2, target_class=target_class)
+
 loader = DataLoader(tr_loader, batch_size=13, shuffle=True, num_workers=4, pin_memory=True)
 
 batch = next(iter(loader))
