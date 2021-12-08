@@ -111,7 +111,8 @@ def fit(cfg, model, discriminator, dataloaders, opts, losses, device):
             batches_done = epoch * len(tr_loader) + i
             if batches_done % cfg.LOG.SAVE_ITER == 0:
                 print(f"Saving samples and weights to {model_path}")
-                sample_image(model, sample_path, batches_done, device, n_row=3)
+                sample_image(model, sample_path, batches_done, device, n_row=3, 
+                    n_classes=cfg.MODEL.N_CLASSES)
                 torch.save(model.state_dict(), f"{weights_path}/ckp_{batches_done:d}.pth")
 
             # Logging
@@ -177,7 +178,7 @@ if __name__ == "__main__":
                         help="number of epochs of training")
     parser.add_argument("--batch_size", type=int, default=-1,
                         help="size of the batches")
-    parser.add_argument("--seed", default=None,
+    parser.add_argument("--seed", type=int, default=-1,
                         help="seed for datasplit")
     parser.add_argument("--target_class", type=int, default=-1,
                         help="target class")

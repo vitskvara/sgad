@@ -46,7 +46,7 @@ class CIFAR10(Dataset):
 
             # put it together
             tr_data = n_tr_data
-            tr_labels =n_tr_labels
+            tr_labels = n_tr_labels
             val_data = torch.cat((n_val_data, a_val_data))
             val_labels = torch.cat((n_val_labels, a_val_labels))
             tst_data = torch.cat((n_tst_data, a_tst_data))
