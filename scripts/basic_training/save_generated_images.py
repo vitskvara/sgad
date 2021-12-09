@@ -22,5 +22,6 @@ counterfactuals = torch.load(dataf)
 
 # save images
 modelid = os.path.basename(dataf).split("_")[0]
-outf = os.path.join(os.path.dirname(dataf), modelid+"_counterfactual.png")
+iters = os.path.basename(dataf).split("_")[1]
+outf = os.path.join(os.path.dirname(dataf), modelid+f"_{iters}_counterfactual.png")
 save_resize_img(counterfactuals[0][0:100,:,:,:].data, outf, n_row=10)

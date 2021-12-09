@@ -20,9 +20,13 @@ class CIFAR10(Dataset):
         
         self.data = tensor(raw_data[0]).float()
         self.labels = tensor(raw_data[1])
+        self.T = transforms.Normalize(
+                    (0.5, 0.5, 0.5),
+                    (0.5, 0.5, 0.5),
+                )
 
     def __getitem__(self, idx):
-        return self.ims[idx], self.labels[idx]
+        return self.T(self.ims[idx]), self.labels[idx]
 
     def __len__(self):
         return len(self.labels)
@@ -52,20 +56,16 @@ class CIFAR10(Dataset):
             tst_data = torch.cat((n_tst_data, a_tst_data))
             tst_labels = torch.cat((n_tst_labels, a_tst_labels))
 
-        return CIFAR10Subset(tr_data, tr_labels), CIFAR10Subset(val_data, val_labels), CIFAR10Subset(tst_data, tst_labels)
+        return Subset(tr_data, tr_labels), Subset(val_data, val_labels), Subset(tst_data, tst_labels)
 
-class CIFAR10Subset(Dataset):
+class Subset(Dataset):
     def __init__(self, data, labels):
         self.ims = data
         self.labels = labels
-        self.T = transforms.Normalize(
-                (0.5, 0.5, 0.5),
-                (0.5, 0.5, 0.5),
-            )
-
+        
     def __getitem__(self, idx):
         ret = {
-            'ims': self.T(self.ims[idx]),
+            'ims': self.ims[idx],
             'labels': self.labels[idx],
         }
 

@@ -11,10 +11,9 @@ from cgn.train_cgn import CGN
 from cgn.dataloader import get_dataloaders
 from utils import load_cfg
 
-def generate_cf_dataset(model, path, dataset_size, no_cfs, device):
+def generate_cf_dataset(model, path, dataset_size, no_cfs, device, n_classes=10):
     x, y = [], []
     model.batch_size = 100
-    n_classes = 10
 
     total_iters = int(dataset_size // model.batch_size // no_cfs)
     for _ in trange(total_iters):
@@ -81,8 +80,8 @@ if __name__ == "__main__":
     else:
         # modelid
         modelid = args.weight_path.split("model_id-")[1][0:14]
+        iters = args.weight_path.split("ckp_")[1].split(".")[0]
         cf_file = os.path.abspath(os.path.join(os.path.dirname(args.weight_path), "../cfg.yaml"))
-        print(cf_file)
         cfg = load_cfg(cf_file)
 
         # load model
@@ -95,6 +94,6 @@ if __name__ == "__main__":
 
         # generate
         print(f"Generating the counterfactual {args.dataset} of size {args.dataset_size}")
-        generate_cf_dataset(model=model, path=os.path.join(args.outpath, modelid + '_counterfactual.pth'),
+        generate_cf_dataset(model=model, path=os.path.join(args.outpath, modelid + f'_{iters}_counterfactual.pth'),
                             dataset_size=args.dataset_size, no_cfs=args.no_cfs,
-                            device=device)
+                            device=device, n_classes=cfg.MODEL.N_CLASSES)
