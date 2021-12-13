@@ -90,10 +90,10 @@ class Subset(Dataset):
 def get_own_dataloaders(dataset_name, batch_size, workers, **kwargs):
     if dataset_name == "cifar10":
         dataset = CIFAR10()
-    elif dataset_name == "wildlife_MNIST":
+    elif dataset_name == "wildlife_mnist":
         dataset = WildlifeMNISTFixed()
     else:
-        raise ValueError("f'{dataset_name} now known")
+        raise ValueError("f'{dataset_name} not known")
 
     tr_set, val_set, tst_set = split_dataset(dataset, **kwargs)
     tr_loader = DataLoader(tr_set, batch_size=batch_size,
