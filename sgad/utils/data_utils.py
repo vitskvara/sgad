@@ -26,6 +26,16 @@ def load_cifar10():
     labels = np.concatenate([x[b'labels'] for x in all_data])
     return data, labels
 
+def load_wildlife_mnist(train=True):
+    path = datadir("raw_datasets/wildlife_MNIST")
+    if train:
+        data = np.load(os.path.join(path, "data.npy"))
+        labels = np.load(os.path.join(path, "labels.npy"))
+    else:
+        data = np.load(os.path.join(path, "data_test.npy"))
+        labels = np.load(os.path.join(path, "labels_test.npy"))
+    return data, labels
+
 def train_val_test_inds(indices, ratios=(0.6,0.2,0.2), seed=None):
     if (sum(ratios) != 1.0 or len(ratios) != 3):
         raise ValueError("ratios must be a vector of length 3 that sums up to 1")

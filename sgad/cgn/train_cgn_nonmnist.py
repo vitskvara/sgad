@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image
 
-from cgn import get_cifar_dataloaders
+from cgn import get_own_dataloaders
 from cgn.config import get_cfg_defaults
 from cgn.dataloader import CIFAR10
 from cgn.models import CGN, DiscLin, DiscConv
@@ -131,11 +131,8 @@ def main(cfg):
     discriminator = Discriminator(n_classes=cfg.MODEL.N_CLASSES, ndf=cfg.MODEL.NDF)
 
     # get data
-    if cfg.TRAIN.DATASET == "cifar10":
-        dataloaders = get_cifar_dataloaders(seed=cfg.TRAIN.SEED, batch_size=cfg.TRAIN.BATCH_SIZE,
-            workers=cfg.TRAIN.WORKERS, target_class=cfg.TRAIN.TARGET_CLASS)
-    else:
-        raise TypeError(f"unknown dataset {cfg.TRAIN.DATASET}")
+    dataloaders = get_own_dataloaders(cfg.TRAIN.DATASET, seed=cfg.TRAIN.SEED, batch_size=cfg.TRAIN.BATCH_SIZE,
+        workers=cfg.TRAIN.WORKERS, target_class=cfg.TRAIN.TARGET_CLASS)
 
     # Loss functions
     L_adv = torch.nn.MSELoss()

@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 import os
 LOCALDIR = os.path.abspath(os.path.dirname(__file__))
-from sgad.utils import load_cifar10, train_val_test_inds, split_data_labels
+from sgad.utils import train_val_test_inds, split_data_labels, load_cifar10, load_wildlife_mnist
 
 class CIFAR10(Dataset):
     def __init__(self):
@@ -31,32 +31,45 @@ class CIFAR10(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def split(self, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
-        if target_class is None:
-            split_inds = train_val_test_inds(np.arange(len(self)), ratios=ratios, seed=seed)
-            (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels) = split_data_labels(self.data, self.labels, split_inds)
-        else:
-            # split normal data
-            n_data = self.data[self.labels == target_class]
-            n_labels = torch.zeros(n_data.shape[0]).long()
-            n_split_inds = train_val_test_inds(np.arange(n_data.shape[0]), ratios=ratios, seed=seed)
-            (n_tr_data, n_tr_labels), (n_val_data, n_val_labels), (n_tst_data, n_tst_labels) = split_data_labels(n_data, n_labels, n_split_inds)
+class WildlifeMNISTFixed(Dataset):
+    def __init__(self):
+        raw_data = load_wildlife_mnist()
+        
+        self.data = tensor(raw_data[0]).float()
+        self.labels = tensor(raw_data[1])
+        
+    def __getitem__(self, idx):
+        return self.ims[idx], self.labels[idx]
 
-            # split anomalous data
-            a_data = self.data[self.labels != target_class]
-            a_labels = torch.ones(a_data.shape[0]).long()
-            a_split_inds = train_val_test_inds(np.arange(a_data.shape[0]), ratios=(0,0.5,0.5), seed=seed)
-            (a_tr_data, a_tr_labels), (a_val_data, a_val_labels), (a_tst_data, a_tst_labels) = split_data_labels(a_data, a_labels, a_split_inds)
+    def __len__(self):
+        return len(self.labels)
 
-            # put it together
-            tr_data = n_tr_data
-            tr_labels = n_tr_labels
-            val_data = torch.cat((n_val_data, a_val_data))
-            val_labels = torch.cat((n_val_labels, a_val_labels))
-            tst_data = torch.cat((n_tst_data, a_tst_data))
-            tst_labels = torch.cat((n_tst_labels, a_tst_labels))
+def split_dataset(dataset, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
+    if target_class is None:
+        split_inds = train_val_test_inds(np.arange(len(dataset)), ratios=ratios, seed=seed)
+        (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels) = split_data_labels(dataset.data, dataset.labels, split_inds)
+    else:
+        # split normal data
+        n_data = dataset.data[dataset.labels == target_class]
+        n_labels = torch.zeros(n_data.shape[0]).long()
+        n_split_inds = train_val_test_inds(np.arange(n_data.shape[0]), ratios=ratios, seed=seed)
+        (n_tr_data, n_tr_labels), (n_val_data, n_val_labels), (n_tst_data, n_tst_labels) = split_data_labels(n_data, n_labels, n_split_inds)
 
-        return Subset(tr_data, tr_labels), Subset(val_data, val_labels), Subset(tst_data, tst_labels)
+        # split anomalous data
+        a_data = dataset.data[dataset.labels != target_class]
+        a_labels = torch.ones(a_data.shape[0]).long()
+        a_split_inds = train_val_test_inds(np.arange(a_data.shape[0]), ratios=(0,0.5,0.5), seed=seed)
+        (a_tr_data, a_tr_labels), (a_val_data, a_val_labels), (a_tst_data, a_tst_labels) = split_data_labels(a_data, a_labels, a_split_inds)
+
+        # put it together
+        tr_data = n_tr_data
+        tr_labels = n_tr_labels
+        val_data = torch.cat((n_val_data, a_val_data))
+        val_labels = torch.cat((n_val_labels, a_val_labels))
+        tst_data = torch.cat((n_tst_data, a_tst_data))
+        tst_labels = torch.cat((n_tst_labels, a_tst_labels))
+
+    return Subset(tr_data, tr_labels), Subset(val_data, val_labels), Subset(tst_data, tst_labels)
 
 class Subset(Dataset):
     def __init__(self, data, labels):
@@ -74,9 +87,15 @@ class Subset(Dataset):
     def __len__(self):
         return self.labels.shape[0]
 
-def get_cifar_dataloaders(batch_size, workers, **kwargs):
-    cifar = CIFAR10()
-    tr_set, val_set, tst_set = cifar.split(**kwargs)
+def get_own_dataloaders(dataset_name, batch_size, workers, **kwargs):
+    if dataset_name == "cifar10":
+        dataset = CIFAR10()
+    elif dataset_name == "wildlife_MNIST":
+        dataset = WildlifeMNISTFixed()
+    else:
+        raise ValueError("f'{dataset_name} now known")
+
+    tr_set, val_set, tst_set = split_dataset(dataset, **kwargs)
     tr_loader = DataLoader(tr_set, batch_size=batch_size,
                           shuffle=True, num_workers=workers)
     val_loader = DataLoader(val_set, batch_size=batch_size,
