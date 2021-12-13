@@ -213,14 +213,18 @@ class WildlifeMNIST(Dataset):
         ])
 
     def __getitem__(self, idx):
+        labels_all = [self.labels[idx]]
+
         # get textures
         i = self.labels[idx] if self.train else np.random.randint(10)
         back_text = Image.open(self.background_textures[i])
         back_text = self.T_texture(back_text)
+        labels_all.append(i)
 
         i = self.labels[idx] if self.train else np.random.randint(10)
         obj_text = Image.open(self.object_textures[i])
         obj_text = self.T_texture(obj_text)
+        labels_all.append(i)
 
         # get digit
         im_digit = (self.ims_digit[idx]/255.).to(torch.float32)
@@ -233,6 +237,7 @@ class WildlifeMNIST(Dataset):
         ret = {
             'ims': ims,
             'labels': self.labels[idx],
+            'labels_all': tensor(labels_all)
         }
         return ret
 
