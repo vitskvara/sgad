@@ -60,11 +60,8 @@ def generate(weight_path, dataset, outpath, dataset_size, no_cfs):
     # Generate counterfactual dataset
     else:
         # modelid
-        print(weight_path)
         modelid = weight_path.split("model_id-")[1][0:14]
         iters = weight_path.split("/")[-1].split("_")[1].split(".")[0]
-        print(modelid)
-        print(iters)
         cf_file = os.path.abspath(os.path.join(os.path.dirname(weight_path), "../cfg.yaml"))
         cfg = load_cfg(cf_file)
 

@@ -87,7 +87,7 @@ class Subset(Dataset):
     def __len__(self):
         return self.labels.shape[0]
 
-def get_own_dataloaders(dataset_name, batch_size, workers, **kwargs):
+def get_own_dataloaders(dataset_name, batch_size, workers, shuffle=True, **kwargs):
     if dataset_name == "cifar10":
         dataset = CIFAR10()
     elif dataset_name == "wildlife_mnist":
@@ -97,11 +97,11 @@ def get_own_dataloaders(dataset_name, batch_size, workers, **kwargs):
 
     tr_set, val_set, tst_set = split_dataset(dataset, **kwargs)
     tr_loader = DataLoader(tr_set, batch_size=batch_size,
-                          shuffle=True, num_workers=workers)
+                          shuffle=shuffle, num_workers=workers)
     val_loader = DataLoader(val_set, batch_size=batch_size,
-                          shuffle=True, num_workers=workers)
+                          shuffle=shuffle, num_workers=workers)
     tst_loader = DataLoader(tst_set, batch_size=batch_size,
-                          shuffle=True, num_workers=workers)
+                          shuffle=shuffle, num_workers=workers)
     return tr_loader, val_loader, tst_loader
 
 class ColoredMNIST(Dataset):
