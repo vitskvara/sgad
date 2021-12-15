@@ -47,8 +47,45 @@ def generate_dataset(dl, path):
     print(f"x shape: {dataset[0].shape}, y shape: {dataset[1].shape}")
     torch.save(dataset, 'mnists/data/' + path)
 
+def generate(weight_path, dataset, outpath, dataset_size, no_cfs):
+       # Generate the dataset
+    if not weight_path:
+        # get dataloader
+        dl_train, dl_test = get_dataloaders(dataset, batch_size=1000, workers=8)
+
+                # generate
+        generate_dataset(dl=dl_train, path=os.path.join(outpath, dataset + '_train.pth'))
+        generate_dataset(dl=dl_test, path=os.path.join(outpath, dataset + '_test.pth'))
+
+    # Generate counterfactual dataset
+    else:
+        # modelid
+        print(weight_path)
+        modelid = weight_path.split("model_id-")[1][0:14]
+        iters = weight_path.split("/")[-1].split("_")[1].split(".")[0]
+        print(modelid)
+        print(iters)
+        cf_file = os.path.abspath(os.path.join(os.path.dirname(weight_path), "../cfg.yaml"))
+        cfg = load_cfg(cf_file)
+
+        # load model
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,
+              ngf=cfg.MODEL.NGF, init_type=cfg.MODEL.INIT_TYPE,
+              init_gain=cfg.MODEL.INIT_GAIN)
+        model.load_state_dict(torch.load(weight_path, 'cpu'))
+        model.to(device).eval()
+
+        # generate
+        print(f"Generating the counterfactual {dataset} of size {dataset_size}")
+        generate_cf_dataset(model=model, path=os.path.join(outpath, modelid + f'_{iters}_counterfactual.pth'),
+                            dataset_size=dataset_size, no_cfs=no_cfs,
+                            device=device, n_classes=cfg.MODEL.N_CLASSES)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model_dir',
+                        help='Directory for mass processing of multiple saved models.')
     parser.add_argument('--dataset',
                         choices=['cifar10', 'colored_MNIST', 'double_colored_MNIST', 'wildlife_MNIST'],
                         help='Name of the dataset. Make sure the name and the weight_path match')
@@ -63,37 +100,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    assert args.weight_path or args.dataset, "Supply dataset name or weight path."
-    if args.weight_path: assert args.dataset, "Also supply the dataset type."
-    os.makedirs(args.outpath, exist_ok=True)
+    if not args.model_dir:
+        assert args.weight_path or args.dataset, "Supply dataset name or weight path."
+        if args.weight_path: assert args.dataset, "Also supply the dataset type."
+        os.makedirs(args.outpath, exist_ok=True)
 
-    # Generate the dataset
-    if not args.weight_path:
-        # get dataloader
-        dl_train, dl_test = get_dataloaders(args.dataset, batch_size=1000, workers=8)
-
-        # generate
-        generate_dataset(dl=dl_train, path=os.path.join(args.outpath, args.dataset + '_train.pth'))
-        generate_dataset(dl=dl_test, path=os.path.join(args.outpath, args.dataset + '_test.pth'))
-
-    # Generate counterfactual dataset
+        generate(args.weight_path, args.dataset, args.outpath, args.dataset_size, args.no_cfs)
     else:
-        # modelid
-        modelid = args.weight_path.split("model_id-")[1][0:14]
-        iters = args.weight_path.split("ckp_")[1].split(".")[0]
-        cf_file = os.path.abspath(os.path.join(os.path.dirname(args.weight_path), "../cfg.yaml"))
-        cfg = load_cfg(cf_file)
-
-        # load model
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,
-              ngf=cfg.MODEL.NGF, init_type=cfg.MODEL.INIT_TYPE,
-              init_gain=cfg.MODEL.INIT_GAIN)
-        model.load_state_dict(torch.load(args.weight_path, 'cpu'))
-        model.to(device).eval()
-
-        # generate
-        print(f"Generating the counterfactual {args.dataset} of size {args.dataset_size}")
-        generate_cf_dataset(model=model, path=os.path.join(args.outpath, modelid + f'_{iters}_counterfactual.pth'),
-                            dataset_size=args.dataset_size, no_cfs=args.no_cfs,
-                            device=device, n_classes=cfg.MODEL.N_CLASSES)
+        print("implement this")

@@ -3,6 +3,8 @@ from datetime import datetime
 from pathlib import Path
 import numpy as np
 from tqdm import tqdm
+import pandas
+import os
 
 import repackage
 repackage.up()
@@ -53,7 +55,12 @@ def fit(cfg, model, discriminator, dataloaders, opts, losses, device):
     # dataloaders
     tr_loader, val_loader, tst_loader = dataloaders
 
+    # loss values
+    losses_all = {'iter': [], 'epoch': [], 'g_adv': [], 'g_binary': [], 'g_perc': [], 
+        'd_real': [], 'd_fake': []}
+
     pbar = tqdm(range(cfg.TRAIN.EPOCHS))
+    niter = 0
     for epoch in pbar:
         for i, data in enumerate(tr_loader):
 
@@ -107,13 +114,28 @@ def fit(cfg, model, discriminator, dataloaders, opts, losses, device):
             loss_d.backward()
             opts.step(['discriminator'], False)
 
+            # collect losses
+            def get_val(t):
+                return t.data.cpu().numpy()
+            niter += 1
+            losses_all['iter'].append(niter)
+            losses_all['epoch'].append(epoch)
+            losses_all['g_adv'].append(get_val(losses_g['adv']))
+            losses_all['g_binary'].append(get_val(losses_g['binary'].data))
+            losses_all['g_perc'].append(get_val(losses_g['perc'].data))
+            losses_all['d_real'].append(get_val(losses_d['real'].data))
+            losses_all['d_fake'].append(get_val(losses_d['fake'].data))
+
             # Saving
             batches_done = epoch * len(tr_loader) + i
             if batches_done % cfg.LOG.SAVE_ITER == 0:
                 print(f"Saving samples and weights to {model_path}")
                 sample_image(model, sample_path, batches_done, device, n_row=3, 
                     n_classes=cfg.MODEL.N_CLASSES)
-                torch.save(model.state_dict(), f"{weights_path}/ckp_{batches_done:d}.pth")
+                torch.save(model.state_dict(), f"{weights_path}/cgn_{batches_done:d}.pth")
+                torch.save(discriminator.state_dict(), f"{weights_path}/discriminator_{batches_done:d}.pth")
+                outdf = pandas.DataFrame.from_dict(losses_all)
+                outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
 
             # Logging
             if cfg.LOG.LOSSES:
@@ -122,6 +144,7 @@ def fit(cfg, model, discriminator, dataloaders, opts, losses, device):
                 msg += ''.join([f"[{k}: {v:.3f}]" for k, v in losses_g.items()])
                 pbar.set_description(msg)
 
+            
 def main(cfg):
     # model init
     model = CGN(n_classes=cfg.MODEL.N_CLASSES, latent_sz=cfg.MODEL.LATENT_SZ,

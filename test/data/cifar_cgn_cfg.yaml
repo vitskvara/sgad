@@ -7,7 +7,7 @@ LAMBDAS:
   - 0.01
 LOG:
   LOSSES: true
-  SAVE_ITER: 3125
+  SAVE_ITER: 100
 LR:
   BETAS:
   - 0.5
