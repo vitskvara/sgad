@@ -9,6 +9,6 @@ setup(
     scripts=[],
     url='https://github.com/vitskvara/sgad',
     description='EFIT++ utilities',
-    long_description=open('README').read(),
+    long_description=open('README.md').read(),
     install_requires=[]
 )
