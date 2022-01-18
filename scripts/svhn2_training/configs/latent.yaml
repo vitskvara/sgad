@@ -1,0 +1,30 @@
+LAMBDAS:
+  MASK: 0.3
+  PERC:
+  - 0.01
+  - 0.05
+  - 0.0
+  - 0.01
+LOG:
+  LOSSES: true
+  SAVE_ITER: 4000
+LR:
+  BETAS:
+  - 0.5
+  - 0.999
+  LR: 0.0002
+MODEL:
+  DISC: conv
+  INIT_GAIN: 0.03
+  INIT_TYPE: normal
+  LATENT_SZ: 64
+  NDF: 32
+  NGF: 32
+  N_CLASSES: 10
+MODEL_NAME: tmp
+TRAIN:
+  BATCH_SIZE: 64
+  COLOR_VAR: 0.02
+  DATASET: svhn2
+  EPOCHS: 120
+  WORKERS: 12

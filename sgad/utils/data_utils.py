@@ -36,6 +36,12 @@ def load_wildlife_mnist(train=True):
         labels = np.load(os.path.join(path, "labels_test.npy"))
     return data, labels
 
+def load_svhn2():
+    path = datadir("raw_datasets/svhn2")
+    data = np.load(os.path.join(path, "data.npy"))
+    labels = np.load(os.path.join(path, "labels.npy"))
+    return data, labels - 1
+
 def train_val_test_inds(indices, ratios=(0.6,0.2,0.2), seed=None):
     if (sum(ratios) != 1.0 or len(ratios) != 3):
         raise ValueError("ratios must be a vector of length 3 that sums up to 1")

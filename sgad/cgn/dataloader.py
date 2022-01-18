@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 import os
 LOCALDIR = os.path.abspath(os.path.dirname(__file__))
-from sgad.utils import train_val_test_inds, split_data_labels, load_cifar10, load_wildlife_mnist
+from sgad.utils import train_val_test_inds, split_data_labels, load_cifar10, load_wildlife_mnist, load_svhn2
 
 class CIFAR10(Dataset):
     def __init__(self):
@@ -26,20 +26,33 @@ class CIFAR10(Dataset):
                 )
 
     def __getitem__(self, idx):
-        return self.T(self.ims[idx]), self.labels[idx]
+        return self.T(self.data[idx]), self.labels[idx]
 
     def __len__(self):
         return len(self.labels)
 
 class WildlifeMNISTFixed(Dataset):
-    def __init__(self):
-        raw_data = load_wildlife_mnist()
+    def __init__(self, train=True):
+        raw_data = load_wildlife_mnist(train=train)
         
         self.data = tensor(raw_data[0]).float()
         self.labels = tensor(raw_data[1])
         
     def __getitem__(self, idx):
-        return self.ims[idx], self.labels[idx]
+        return self.data[idx], self.labels[idx]
+
+    def __len__(self):
+        return len(self.labels)
+
+class SVHN2(Dataset):
+    def __init__(self):
+        raw_data = load_svhn2()
+        
+        self.data = tensor(raw_data[0]).float()
+        self.labels = tensor(raw_data[1])
+        
+    def __getitem__(self, idx):
+        return self.data[idx], self.labels[idx]
 
     def __len__(self):
         return len(self.labels)
@@ -75,10 +88,15 @@ class Subset(Dataset):
     def __init__(self, data, labels):
         self.ims = data
         self.labels = labels
+        self.T = transforms.Normalize(
+                (0.5, 0.5, 0.5),
+                (0.5, 0.5, 0.5),
+            )
+
         
     def __getitem__(self, idx):
         ret = {
-            'ims': self.ims[idx],
+            'ims': self.T(self.ims[idx]),
             'labels': self.labels[idx],
         }
 
@@ -87,11 +105,13 @@ class Subset(Dataset):
     def __len__(self):
         return self.labels.shape[0]
 
-def get_own_dataloaders(dataset_name, batch_size, workers, shuffle=True, **kwargs):
+def get_own_dataloaders(dataset_name, batch_size, workers, shuffle=True, train=True, **kwargs):
     if dataset_name == "cifar10":
         dataset = CIFAR10()
     elif dataset_name == "wildlife_mnist":
-        dataset = WildlifeMNISTFixed()
+        dataset = WildlifeMNISTFixed(train=train)
+    elif dataset_name == "svhn2":
+        dataset = SVHN2()
     else:
         raise ValueError("f'{dataset_name} not known")
 
@@ -99,9 +119,9 @@ def get_own_dataloaders(dataset_name, batch_size, workers, shuffle=True, **kwarg
     tr_loader = DataLoader(tr_set, batch_size=batch_size,
                           shuffle=shuffle, num_workers=workers)
     val_loader = DataLoader(val_set, batch_size=batch_size,
-                          shuffle=shuffle, num_workers=workers)
+                          shuffle=False, num_workers=workers)
     tst_loader = DataLoader(tst_set, batch_size=batch_size,
-                          shuffle=shuffle, num_workers=workers)
+                          shuffle=False, num_workers=workers)
     return tr_loader, val_loader, tst_loader
 
 class ColoredMNIST(Dataset):

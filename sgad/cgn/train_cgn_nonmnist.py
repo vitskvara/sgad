@@ -144,6 +144,8 @@ def fit(cfg, model, discriminator, dataloaders, opts, losses, device):
                 msg += ''.join([f"[{k}: {v:.3f}]" for k, v in losses_g.items()])
                 pbar.set_description(msg)
 
+    return model_path
+
             
 def main(cfg):
     # model init
@@ -174,7 +176,9 @@ def main(cfg):
     discriminator = discriminator.to(device)
     losses = (l.to(device) for l in losses)
 
-    fit(cfg, model, discriminator, dataloaders, opts, losses, device)
+    model_path = fit(cfg, model, discriminator, dataloaders, opts, losses, device)
+
+    return model, discriminator, opts, dataloaders, model_path
 
 def merge_args_and_cfg(args, cfg):
     cfg.LOG.SAVE_ITER = cfg.LOG.SAVE_ITER if args.save_iter == -1 else args.save_iter
@@ -183,7 +187,7 @@ def merge_args_and_cfg(args, cfg):
     cfg.TRAIN.SEED = cfg.TRAIN.SEED if args.seed is None else args.seed
     cfg.TRAIN.TARGET_CLASS = cfg.TRAIN.TARGET_CLASS if args.target_class == -1 else args.target_class
     cfg.OUTPATH = args.outpath
-    cfg.MODEL.N_CLASSES = cfg.MODEL.N_CLASSES if cfg.TRAIN.TARGET_CLASS is None else 1
+    cfg.MODEL.N_CLASSES = cfg.MODEL.N_CLASSES if cfg.TRAIN.TARGET_CLASS is None else 2
     return cfg
 
 if __name__ == "__main__":
