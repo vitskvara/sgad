@@ -4,9 +4,22 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision.utils import save_image
 
+def check_create_datadir():
+    sgaddf = os.path.join(os.path.expanduser("~"), ".sgad_datapath")
+    if not os.path.exists(sgaddf):
+        data_path = os.path.join(os.path.expanduser("~"), "sgad_data")
+        alt_path = input(f"Enter datapath for experiment storage (default {data_path}): ")
+        data_path = datapath if alt_path == '' else alt_path
+        with open(sgaddf, "w") as f:
+            f.write(data_path)
+        os.makedirs(data_path, exist_ok=True)
+
 def datadir(*args):
-    file_path = os.path.realpath(__file__)
-    return os.path.join(os.path.abspath(os.path.join(file_path, "../../../../data")), *args)
+    sgaddf = os.path.join(os.path.expanduser("~"), ".sgad_datapath")
+    f = open(sgaddf, "r")
+    data_path = f.readline()
+    f.close()
+    return os.path.join(data_path, *args)
 
 def save_resize_img(x, path, n_row, sz=64):
     x = F.interpolate(x, (sz, sz))

@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 
+# now run setuptools setup
 setup(
     name='sgad',
     version='0.1.0',

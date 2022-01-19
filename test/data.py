@@ -1,47 +1,66 @@
-import os, sys
-
-# sgad
-SGADHOME='/home/skvara/work/counterfactual_ad/sgad'
-sys.path.append(SGADHOME)
-
+import unittest
 import sgad
-from sgad.utils import train_val_test_inds, load_cifar10, split_data_labels
-from sgad.cgn import CIFAR10, SVHN2
-from torch import tensor
-from torch.utils.data import DataLoader
-
 import numpy as np
+from torch.utils.data import DataLoader
+import os
 
-indices = np.array(range(500))
+class TestImports(unittest.TestCase):
+    def test_imports(self):
+        sgad.cgn
+        sgad.utils
+        sgad.shared
 
-tr_inds, val_inds, tst_inds = train_val_test_inds(indices)
+class TestSplit(unittest.TestCase):
+    def test_split_seed(self):
+        from sgad.utils import train_val_test_inds
 
-inds1 = train_val_test_inds(indices, seed=3)
-inds2 = train_val_test_inds(indices, seed=3)
+        indices = np.array(range(500))
+        tr_inds, val_inds, tst_inds = train_val_test_inds(indices)
+        inds1 = train_val_test_inds(indices, seed=3)
+        inds2 = train_val_test_inds(indices, seed=3)
+        for i in range(3):
+            self.assertTrue(np.array_equal(inds1[i], inds2[i]))
 
-cifar = CIFAR10()
-tr_loader, val_loader, tst_loader = sgad.cgn.dataloader.split_dataset(cifar, seed=2)
+    def test_load_cifar10(self):
+        # basic cifar
+        from sgad.utils import load_cifar10
+        cifar10_raw = load_cifar10()
+        self.assertTrue(cifar10_raw[0].shape==(60000, 3, 32, 32))
+        self.assertTrue(len(cifar10_raw[1])==60000)
 
-loader = DataLoader(tr_loader, batch_size=13, shuffle=True, num_workers=4, pin_memory=True)
+        # cifar10 dataloader
+        from sgad.cgn import CIFAR10
+        cifar = CIFAR10()
+        bs = 13
+        tr_loader, val_loader, tst_loader = sgad.cgn.dataloader.split_dataset(cifar, seed=2)
+        loader = DataLoader(tr_loader, batch_size=bs, shuffle=True, num_workers=4, pin_memory=True)
+        batch = next(iter(loader))
+        self.assertTrue(batch['ims'].shape==(bs, 3, 32, 32))
+        self.assertTrue(len(batch['labels'])==bs)
 
-batch = next(iter(loader))
-batch["ims"]
+    def test_get_dataloaders(self):
+        from sgad.cgn.dataloader import get_dataloaders
+        dl,_ = get_dataloaders('wildlife_MNIST', 32, 12)
+        batch = next(iter(dl))
+        self.assertTrue(True)
 
-from sgad.cgn.dataloader import get_dataloaders
+    def test_split_dataset(self):
+        from sgad.cgn import SVHN2, split_dataset
+        svhn2 = SVHN2()
+        tr_set, val_set, tst_set = split_dataset(svhn2, seed=2, target_class=0)
 
-dl,_ = get_dataloaders('wildlife_MNIST', 32, 12)
+        batch_size = 128
+        shuffle = True
+        workers = 12
+        loader = DataLoader(tr_set, batch_size=batch_size,
+                                  shuffle=shuffle, num_workers=workers)
 
-bbatch = next(iter(dl))
+        batch = next(iter(loader))
+        self.assertTrue(batch['ims'].shape==(batch_size, 3, 32, 32))
+        self.assertTrue(len(batch['labels'])==batch_size)
 
-svhn2 = SVHN2()
-tr_set, val_set, tst_set = sgad.cgn.dataloader.split_dataset(svhn2, seed=2, target_class=0)
+        sgad.utils.save_resize_img(batch['ims'], "test.png", 8)
+        self.assertTrue(os.path.exists("test.png"))
 
-batch_size = 128
-shuffle = True
-workers = 12
-loader = DataLoader(tr_set, batch_size=batch_size,
-                          shuffle=shuffle, num_workers=workers)
-
-batch = next(iter(loader))
-
-sgad.utils.save_resize_img(batch['ims'], "test.png", 8)
+if __name__ == '__main__':
+    unittest.main()
