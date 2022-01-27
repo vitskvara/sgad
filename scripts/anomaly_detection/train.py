@@ -2,8 +2,6 @@ import argparse
 import numpy as np
 import torch
 import os, sys
-SGADHOME='/home/skvara/work/counterfactual_ad/sgad'
-sys.path.append(SGADHOME)
 from sgad.utils import datadir
 from sgad.cgn.train_cgn_nonmnist import load_cfg, get_cfg_defaults, merge_args_and_cfg, main
 from sgad.shared.losses import PerceptualLoss

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torchvision
 from torchvision.utils import make_grid
 
-from utils import requires_grad, children, hook_outputs
+from sgad.utils import requires_grad, children, hook_outputs
 
 # helper functions
 

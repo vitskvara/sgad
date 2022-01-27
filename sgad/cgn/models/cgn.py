@@ -49,11 +49,12 @@ def texture_layers(cin, cout, ngf, init_sz):
 class CGN(nn.Module):
 
     def __init__(self, n_classes=10, latent_sz=32, ngf=32,
-                 init_type='orthogonal', init_gain=0.1, img_sz=32):
+                 init_type='orthogonal', init_gain=0.1, img_sz=32,
+                 batch_size=1):
         super(CGN, self).__init__()
 
         # params
-        self.batch_size = 1  # default: sample a single image
+        self.batch_size = batch_size  # default: sample a single image
         self.n_classes = n_classes
         self.latent_sz = latent_sz
         self.label_emb = nn.Embedding(n_classes, n_classes)
