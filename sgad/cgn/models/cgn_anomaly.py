@@ -18,6 +18,7 @@ class CGNAnomaly(nn.Module):
                 self, 
                 z_dim=32,
                 h_channels=32,
+                n_classes=1,
                 img_dim=32,
                 disc_model='linear',
                 disc_h_dim=32,
@@ -34,7 +35,7 @@ class CGNAnomaly(nn.Module):
 
         # init cgn (generators)
         self.cgn = CGN(
-            n_classes=1, 
+            n_classes=n_classes, 
             latent_sz=z_dim,
             ngf=h_channels, 
             init_type=init_type,
@@ -44,7 +45,7 @@ class CGNAnomaly(nn.Module):
         
         # init discriminator
         Discriminator = DiscLin if disc_model == 'linear' else DiscConv
-        self.discriminator = Discriminator(n_classes=1, ndf=disc_h_dim)
+        self.discriminator = Discriminator(n_classes=n_classes, ndf=disc_h_dim)
 
         # Loss functions
         self.adv_loss = torch.nn.MSELoss() # ?
@@ -69,6 +70,7 @@ class CGNAnomaly(nn.Module):
         self.config = CN()
         self.config.z_dim = z_dim
         self.config.h_channels = h_channels
+        self.config.n_classes = n_classes
         self.config.img_dim = img_dim
         self.config.disc_model = disc_model
         self.config.disc_h_dim = disc_h_dim
@@ -86,7 +88,7 @@ class CGNAnomaly(nn.Module):
     def forward(self, ys=None, counterfactual=False):
         return self.cgn.forward(ys, counterfactual)
 
-    def fit(self, X, 
+    def fit(self, X, y=None,
             n_epochs=20, 
             save_iter=1000, 
             verb=True, 
@@ -94,9 +96,13 @@ class CGNAnomaly(nn.Module):
             save_path=None, 
             workers=12
         ):
+        """Fit the model given X (and possibly y).
+
+        If y is supported, the classes should be labeled by integers like in range(n_classes).
+        """
         # setup the dataloader
-        y = torch.zeros(X.shape[0]).long()
-        tr_loader = DataLoader(Subset(torch.tensor(X), y), 
+        y = torch.ones(X.shape[0]).long() if y is None else y
+        tr_loader = DataLoader(Subset(torch.tensor(X).float(), y), 
             batch_size=self.config.batch_size, 
             shuffle=True, 
             num_workers=workers)
@@ -138,11 +144,8 @@ class CGNAnomaly(nn.Module):
                 #
                 self.opts.zero_grad(['generator'])
 
-                # Sample noise and labels as generator input
-                
-                y_gen = torch.randint(self.cgn.n_classes, (len(y_gt),)).to(self.device)
-
-                # Generate a batch of images
+                # Generate some samples
+                y_gen = torch.randint(self.config.n_classes, (len(y_gt),)).long().to(self.device)
                 mask, foreground, background = self.cgn(y_gen)
                 x_gen = mask * foreground + (1 - mask) * background
 
@@ -205,8 +208,7 @@ class CGNAnomaly(nn.Module):
                 if save_results:
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
-                        sample_image(self.cgn, sample_path, batches_done, device, n_row=3, 
-                            n_classes=self.config.n_classes)
+                        self.save_sample_images(sample_path, batches_done, n_row=3)
                         torch.save(model.state_dict(), f"{weights_path}/cgn_{batches_done:d}.pth")
                         torch.save(discriminator.state_dict(), f"{weights_path}/discriminator_{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
@@ -214,12 +216,26 @@ class CGNAnomaly(nn.Module):
                 
         return losses_all
 
-    def generate(self, n):
-        y_gen = torch.zeros(n).long().to(self.device)
-        mask, foreground, background = self.cgn(y_gen)
+    def generate(self, y):
+        mask, foreground, background = self.cgn(y)
         x_gen = mask * foreground + (1 - mask) * background
-        return x_gen
-    
+        return x_gen    
+
+    def generate_random(self, n):
+        y = torch.randint(self.config.n_classes, (n,)).long().to(self.device)
+        return self.generate(y)
+
+    def save_sample_images(self, sample_path, batches_done, n_row=3):
+        """Saves a grid of generated digits"""
+        y_gen = np.arange(n_classes).repeat(n_row)
+        y_gen = torch.LongTensor(y_gen).to(self.device)
+        mask, foreground, background = model(y_gen)
+        x_gen = mask * foreground + (1 - mask) * background
+
+        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_row)
+        save(mask.data, f"{sample_path}/1_{batches_done:d}_mask.png", n_row)
+        save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_row)
+        save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_row)
 
     def predict(self):
         return None

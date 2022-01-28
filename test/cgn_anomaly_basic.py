@@ -15,7 +15,7 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(len(next(iter(model.parameters()))) > 0)
         self.assertTrue(model.cgn.f_shape[0].in_features == 33)
         self.assertTrue(model.cgn.f_shape[4].out_channels == 32)
-        self.assertTrue(all(np.array(model.generate(2).shape) == [2, 3, 32, 32]))
+        self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 32, 32]))
         self.assertTrue(type(model.discriminator.model[0]) == torch.nn.modules.linear.Linear)
         self.assertTrue(model.discriminator.model[0].out_features == 32)
         self.assertTrue(model.config.batch_size == 1)
@@ -40,7 +40,9 @@ class TestConstructor(unittest.TestCase):
 
     def test_img_dim(self):
         model = CGNAnomaly(img_dim = 16)
-        self.assertTrue(all(np.array(model.generate(2).shape) == [2, 3, 16, 16]))
+        x_gen = model.generate_random(2)
+        self.assertTrue(all(np.array(x_gen.shape) == [2, 3, 16, 16]))
+        #self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 16, 16]))
 
     def test_disc_model(self):
         model = CGNAnomaly(disc_model = 'conv')
@@ -91,7 +93,12 @@ class TestConstructor(unittest.TestCase):
 
 X_raw, y_raw = load_cifar10()
 
-class TestFit(unittest.TestCase):
+class TestUtils(unittest.TestCase):
+    def test_generate_random(self):
+        model = CGNAnomaly()
+        x_gen = model.generate_random(4)        
+        self.assertTrue(all(np.array(x_gen.shape) == [4, 3, 32, 32]))
+
     def test_tr_loader(self):
         X = torch.tensor(X_raw)
         y = torch.zeros(X_raw.shape[0]).long()
@@ -104,18 +111,3 @@ class TestFit(unittest.TestCase):
 
         self.assertTrue(all(np.array(batch['ims'].shape) == [batch_size, 3, 32, 32]))
         self.assertTrue(len(batch['labels']) == batch_size)
-
-    def test_fit(self):
-        X = X_raw[:5000]
-        model = CGNAnomaly(batch_size=32)
-        losses_all = model.fit(
-            X, 
-            n_epochs=1, 
-            save_iter=100, 
-            verb=True, 
-            save_results=True, 
-            save_path="./_cgn_anomaly_tmp", 
-            workers=12
-        )
-
-
