@@ -4,6 +4,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import os
 import torch 
+import shutil
 
 from sgad.utils import load_cifar10
 from sgad.cgn import Subset
@@ -114,4 +115,10 @@ class TestUtils(unittest.TestCase):
 
     def test_save_sample_images(self):
         model = CGNAnomaly()
-        model.save_sample_images("_tmp_samples", 1, n_rows=3)
+        _tmp = "_tmp_samples"
+        model.save_sample_images(_tmp, 1, n_rows=3)
+        self.assertTrue(os.path.isfile(f"{_tmp}/0_1_x_gen.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/1_1_mask.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/2_1_foreground.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/3_1_background.png"))
+        shutil.rmtree(_tmp)

@@ -8,6 +8,8 @@ from yacs.config import CfgNode as CN
 from tqdm import tqdm
 import torch.nn.functional as F
 from torchvision.utils import save_image
+import pandas
+import os
 
 from sgad.shared.losses import BinaryLoss, PerceptualLoss
 from sgad.utils import save_cfg, Optimizers
@@ -153,9 +155,6 @@ class CGNAnomaly(nn.Module):
                 x_gen = mask * foreground + (1 - mask) * background
 
                 # Calc Losses
-                print(type(x_gen))
-                print(type(x_gt))
-                print(type(y_gen))
                 validity = self.discriminator(x_gen, y_gen)
 
                 losses_g = {}
@@ -211,9 +210,9 @@ class CGNAnomaly(nn.Module):
                 if save_results:
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
-                        self.save_sample_images(sample_path, batches_done, n_row=3)
-                        torch.save(model.state_dict(), f"{weights_path}/cgn_{batches_done:d}.pth")
-                        torch.save(discriminator.state_dict(), f"{weights_path}/discriminator_{batches_done:d}.pth")
+                        self.save_sample_images(sample_path, batches_done, n_rows=3)
+                        torch.save(self.cgn.state_dict(), f"{weights_path}/cgn_{batches_done:d}.pth")
+                        torch.save(self.discriminator.state_dict(), f"{weights_path}/discriminator_{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
                 
