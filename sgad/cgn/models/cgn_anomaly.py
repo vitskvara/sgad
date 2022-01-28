@@ -243,5 +243,47 @@ class CGNAnomaly(nn.Module):
         save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_rows)
         save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_rows)
 
-    def predict(self):
-        return None
+    def predict(self, X, score_type="discriminator", workers=12):
+        if not score_type in ["discriminator", "perceptual"]:
+            raise ValueError("Must be one of ['discriminator', 'perceptual'].")
+        
+        # create the loader
+        y = torch.zeros(X.shape[0]).long()
+        loader = DataLoader(Subset(torch.tensor(X).float(), y), 
+            batch_size=self.config.batch_size, 
+            shuffle=False, 
+            num_workers=workers)
+        
+        # get the scores
+        if score_type == "discriminator":
+            return self.disc_score_batched(loader)
+        else:
+            return self.perc_score_batched(loader)
+
+    def disc_score(self, X):
+        y = torch.zeros(X.size(0),).int().to(self.device)
+        return 1 - self.discriminator(X, y).data.to('cpu').numpy()
+
+    def disc_score_batched(self, loader):
+        scores = []
+        labels = []
+        for batch in loader:
+            x = batch['ims'].to(self.device)
+            score = self.disc_score(x)
+            scores.append(score)
+
+        return np.concatenate(scores)
+
+    def perc_score(self, X):
+        x_gen = self.generate_random(X.size(0))
+        x_gen = x_gen.detach().to(self.device)
+        return np.array([self.perc_loss(x_gen[i].reshape(1,*x_gen[i].size()), X[i].reshape(1,*X[i].size())).data.to('cpu').numpy() for i in range(X.size(0))])
+
+    def perc_score_batched(self, loader):
+        scores = []
+        for batch in loader:
+            x = batch['ims'].to(self.device)
+            score = self.perc_score(x)
+            scores.append(score)
+
+        return np.concatenate(scores)

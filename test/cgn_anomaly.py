@@ -130,3 +130,49 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(os.path.isfile(f"{_tmp}/2_1_foreground.png"))
         self.assertTrue(os.path.isfile(f"{_tmp}/3_1_background.png"))
         shutil.rmtree(_tmp)
+
+class TestFit(unittest.TestCase):
+    def test_fit_default(self):
+        model = CGNAnomaly(batch_size=32)
+        X = X_raw[y_raw==0][:5000]
+        _tmp = "./_cgn_anomaly_tmp"
+        losses_all = model.fit(
+            X, 
+            n_epochs=1, 
+            save_iter=100, 
+            verb=True, 
+            save_results=True, 
+            save_path=_tmp, 
+            workers=12
+        )
+        self.assertTrue(os.path.isfile(f"{_tmp}/cfg.yaml"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/losses.csv"))
+        self.assertTrue(os.path.isdir(f"{_tmp}/samples"))
+        self.assertTrue(os.path.isdir(f"{_tmp}/weights"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/samples/0_100_x_gen.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/samples/1_100_mask.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/samples/2_100_foreground.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/samples/3_100_background.png"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/weights/cgn_100.pth"))
+        self.assertTrue(os.path.isfile(f"{_tmp}/weights/discriminator_100.pth"))
+        shutil.rmtree(_tmp)
+
+# train a model for score testing
+model = CGNAnomaly(batch_size=32)
+X = X_raw[y_raw==0][:5000]
+losses_all = model.fit(X, n_epochs=5, verb=True, save_results=False)
+X_test = X_raw[y_raw!=0][:5000]
+
+class TestPredict(unittest.TestCase):
+    def compare_scores(self, score_type):
+        scores = model.predict(X, score_type=score_type)
+        scores_test = model.predict(X_test, score_type=score_type)
+        self.assertTrue(len(scores)==5000)
+        self.assertTrue(type(scores)==np.ndarray)
+        self.assertTrue(scores.mean() < scores_test.mean())
+
+    def test_disc_score(self):
+        self.compare_scores("discriminator")
+
+    def test_perc_score(self):
+        self.compare_scores("perceptual")
