@@ -1,10 +1,13 @@
 import torch
+import numpy as np
 from torch import nn
 from pathlib import Path
 import copy
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode as CN
 from tqdm import tqdm
+import torch.nn.functional as F
+from torchvision.utils import save_image
 
 from sgad.shared.losses import BinaryLoss, PerceptualLoss
 from sgad.utils import save_cfg, Optimizers
@@ -225,17 +228,22 @@ class CGNAnomaly(nn.Module):
         y = torch.randint(self.config.n_classes, (n,)).long().to(self.device)
         return self.generate(y)
 
-    def save_sample_images(self, sample_path, batches_done, n_row=3):
+    def save_sample_images(self, sample_path, batches_done, n_rows=3):
         """Saves a grid of generated digits"""
-        y_gen = np.arange(n_classes).repeat(n_row)
+        y_gen = np.arange(self.config.n_classes).repeat(n_rows)
         y_gen = torch.LongTensor(y_gen).to(self.device)
-        mask, foreground, background = model(y_gen)
+        mask, foreground, background = self(y_gen)
         x_gen = mask * foreground + (1 - mask) * background
 
-        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_row)
-        save(mask.data, f"{sample_path}/1_{batches_done:d}_mask.png", n_row)
-        save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_row)
-        save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_row)
+        def save(x, path, n_rows, sz=64):
+            x = F.interpolate(x, (sz, sz))
+            save_image(x.data, path, nrow=n_rows, normalize=True, padding=2)
+
+        Path(sample_path).mkdir(parents=True, exist_ok=True)
+        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_rows)
+        save(mask.data, f"{sample_path}/1_{batches_done:d}_mask.png", n_rows)
+        save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_rows)
+        save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_rows)
 
     def predict(self):
         return None

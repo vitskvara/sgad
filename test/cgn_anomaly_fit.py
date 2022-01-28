@@ -25,9 +25,6 @@ class TestFit(unittest.TestCase):
             workers=12
         )
 
-
-
-
 #y_gen = torch.randint(model.config.n_classes, (5,)).long().to(model.device)
 #mask, foreground, background = model(y_gen)
 #x_gen = mask * foreground + (1 - mask) * background

@@ -111,3 +111,7 @@ class TestUtils(unittest.TestCase):
 
         self.assertTrue(all(np.array(batch['ims'].shape) == [batch_size, 3, 32, 32]))
         self.assertTrue(len(batch['labels']) == batch_size)
+
+    def test_save_sample_images(self):
+        model = CGNAnomaly()
+        model.save_sample_images("_tmp_samples", 1, n_rows=3)
