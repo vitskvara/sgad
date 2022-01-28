@@ -104,7 +104,7 @@ class CGNAnomaly(nn.Module):
         If y is supported, the classes should be labeled by integers like in range(n_classes).
         """
         # setup the dataloader
-        y = torch.ones(X.shape[0]).long() if y is None else y
+        y = torch.zeros(X.shape[0]).long() if y is None else y
         tr_loader = DataLoader(Subset(torch.tensor(X).float(), y), 
             batch_size=self.config.batch_size, 
             shuffle=True, 
