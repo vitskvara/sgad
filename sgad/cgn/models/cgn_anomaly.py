@@ -18,7 +18,6 @@ from .discriminator import DiscLin, DiscConv
 from sgad.cgn.dataloader import Subset
 
 class CGNAnomaly(nn.Module):
-
     def __init__(
                 self, 
                 z_dim=32,

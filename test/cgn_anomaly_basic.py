@@ -15,6 +15,8 @@ class TestConstructor(unittest.TestCase):
         model = CGNAnomaly()
         self.assertTrue(len(next(iter(model.parameters()))) > 0)
         self.assertTrue(model.cgn.f_shape[0].in_features == 33)
+        self.assertTrue(model.config.n_classes == 1)
+        self.assertTrue(model.cgn.n_classes == 1)
         self.assertTrue(model.cgn.f_shape[4].out_channels == 32)
         self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 32, 32]))
         self.assertTrue(type(model.discriminator.model[0]) == torch.nn.modules.linear.Linear)
@@ -39,11 +41,17 @@ class TestConstructor(unittest.TestCase):
         model = CGNAnomaly(h_channels = 8)
         self.assertTrue(model.cgn.f_shape[4].out_channels == 8)
 
+    def test_n_classes(self):
+        model = CGNAnomaly(n_classes = 2)
+        self.assertTrue(model.config.n_classes == 2)
+        self.assertTrue(model.cgn.n_classes == 2)
+        self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 32, 32]))
+        
     def test_img_dim(self):
         model = CGNAnomaly(img_dim = 16)
         x_gen = model.generate_random(2)
         self.assertTrue(all(np.array(x_gen.shape) == [2, 3, 16, 16]))
-        #self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 16, 16]))
+        self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 16, 16]))
 
     def test_disc_model(self):
         model = CGNAnomaly(disc_model = 'conv')
