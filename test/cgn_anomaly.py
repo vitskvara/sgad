@@ -13,6 +13,7 @@ from sgad.cgn.models import CGNAnomaly
 class TestConstructor(unittest.TestCase):
     def test_default(self):
         model = CGNAnomaly()
+        self.assertTrue(model.num_params() > 5000)
         self.assertTrue(len(next(iter(model.parameters()))) > 0)
         self.assertTrue(model.cgn.f_shape[0].in_features == 33)
         self.assertTrue(model.config.n_classes == 1)

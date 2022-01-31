@@ -218,8 +218,9 @@ class CGNAnomaly(nn.Module):
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
                         self.save_sample_images(sample_path, batches_done, n_rows=3)
-                        torch.save(self.cgn.state_dict(), f"{weights_path}/cgn_{batches_done:d}.pth")
-                        torch.save(self.discriminator.state_dict(), f"{weights_path}/discriminator_{batches_done:d}.pth")
+                        self.save_weights(
+                            f"{weights_path}/cgn_{batches_done:d}.pth",
+                            f"{weights_path}/discriminator_{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
                 
@@ -295,3 +296,14 @@ class CGNAnomaly(nn.Module):
             scores.append(score)
 
         return np.concatenate(scores)
+
+    def num_params(self):
+        s = 0
+        for p in self.parameters():
+            s += np.array(p.data.to('cpu')).size
+        return s
+
+    def save_weights(self, cgn_file, disc_file):
+        torch.save(self.cgn.state_dict(), cgn_file)
+        torch.save(self.discriminator.state_dict(), disc_file)
+                        
