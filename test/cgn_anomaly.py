@@ -32,6 +32,12 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.opts._modules['discriminator'].defaults['lr'] == 0.0002)
         self.assertTrue(model.opts._modules['generator'].defaults['betas'] == [0.5, 0.999])
         self.assertTrue(model.opts._modules['discriminator'].defaults['betas'] == [0.5, 0.999])
+        
+        # test random init
+        a = float(model.cgn.f_shape[0].weight[0,0].to('cpu'))
+        model = CGNAnomaly()
+        b = float(model.cgn.f_shape[0].weight[0,0].to('cpu'))
+        self.assertTrue(a != b)
 
     def test_z_dim(self):
         model = CGNAnomaly(z_dim = 16)
@@ -79,6 +85,13 @@ class TestConstructor(unittest.TestCase):
         # scaling factor for normal, xavier and orthogonal initialization
         model = CGNAnomaly(init_gain = 0.05)
         self.assertTrue(model.config.init_gain == 0.05)
+
+    def test_init_seed(self):
+        model = CGNAnomaly(init_seed = 3)
+        a = float(model.cgn.f_shape[0].weight[0,0].to('cpu'))
+        model = CGNAnomaly(init_seed = 3)
+        b = float(model.cgn.f_shape[0].weight[0,0].to('cpu'))
+        self.assertTrue(a == b)
 
     def test_lambda_mask(self):
         model = CGNAnomaly(lambda_mask = 0.2)

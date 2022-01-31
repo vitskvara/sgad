@@ -29,6 +29,7 @@ class CGNAnomaly(nn.Module):
                 batch_size=1,  # does this need to be here?
                 init_type='orthogonal', 
                 init_gain=0.1,
+                init_seed=None,
                 lambda_mask=0.3,
                 lambdas_perc=[0.01, 0.05, 0.0, 0.01],
                 lr=0.0002,
@@ -36,6 +37,10 @@ class CGNAnomaly(nn.Module):
                 ):
 
         super(CGNAnomaly, self).__init__()
+
+        # set seed
+        if init_seed is not None:
+            torch.random.manual_seed(init_seed)
 
         # init cgn (generators)
         self.cgn = CGN(
@@ -61,6 +66,9 @@ class CGNAnomaly(nn.Module):
         self.opts.set('generator', self.cgn, lr=lr, betas=betas)
         self.opts.set('discriminator', self.discriminator, lr=lr, betas=betas)
 
+        # reset seed
+        torch.random.seed()
+        
         # push to device and train
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.device = device
