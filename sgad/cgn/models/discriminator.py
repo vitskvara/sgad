@@ -29,9 +29,9 @@ class DiscLin(nn.Module):
         return validity.squeeze()
 
 class DiscConv(nn.Module):
-    def __init__(self, n_classes, ndf):
+    def __init__(self, n_classes, ndf, img_shape=[3, 32, 32]):
         super(DiscConv, self).__init__()
-        cin = 4  # RGB + Embedding
+        cin = img_shape[0] + 1  # BW/RGB + Embedding
         self.label_embedding = nn.Embedding(n_classes, 1)
 
         def block(cin, cout, ks, st):

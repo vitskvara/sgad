@@ -166,6 +166,10 @@ class PerceptualLossModel(nn.Module):
         return [(o.clone() if clone else o) for o in self.hooks.stored]
 
     def forward(self, input, target):
+        if input.shape[1] == 1:
+            input = input.repeat([1,3,1,1])
+        if target.shape[1] == 1:
+            target = target.repeat([1,3,1,1])
         out_feat = self.make_features(target, clone=True)
         in_feat = self.make_features(input)
         self.feat_losses = [self.base_loss(f_in, f_out)*w

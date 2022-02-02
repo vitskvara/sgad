@@ -15,11 +15,11 @@ class Flatten(nn.Module):
         return x.view(-1) if self.full else x.view(x.size(0), -1)
 
 class CNN(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, in_channels=3):
         super(CNN, self).__init__()
         self.model = nn.Sequential(
-            nn.BatchNorm2d(3),
-            nn.Conv2d(3, 32, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(in_channels),
+            nn.Conv2d(in_channels, 32, kernel_size=5, stride=1, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),

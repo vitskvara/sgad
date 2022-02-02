@@ -88,11 +88,7 @@ class Subset(Dataset):
     def __init__(self, data, labels):
         self.ims = data
         self.labels = labels
-        self.T = transforms.Normalize(
-                (0.5, 0.5, 0.5),
-                (0.5, 0.5, 0.5),
-            )
-
+        self.T = transforms.Normalize(0.5, 0.5)
         
     def __getitem__(self, idx):
         ret = {

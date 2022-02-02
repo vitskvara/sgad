@@ -24,6 +24,7 @@ class CGNAnomaly(nn.Module):
                 h_channels=32,
                 n_classes=1,
                 img_dim=32,
+                img_channels=3,
                 disc_model='linear',
                 disc_h_dim=32,
                 batch_size=1,  # does this need to be here?
@@ -50,11 +51,13 @@ class CGNAnomaly(nn.Module):
             init_type=init_type,
             init_gain=init_gain,
             img_sz=img_dim,
+            img_channels=img_channels,
             batch_size=batch_size) # where is the part that accumulates the gradients if we use 1 here?
         
         # init discriminator
+        img_shape = [img_channels, img_dim, img_dim]
         Discriminator = DiscLin if disc_model == 'linear' else DiscConv
-        self.discriminator = Discriminator(n_classes=n_classes, ndf=disc_h_dim)
+        self.discriminator = Discriminator(n_classes=n_classes, ndf=disc_h_dim, img_shape=img_shape)
 
         # Loss functions
         self.adv_loss = torch.nn.MSELoss() # ?
@@ -84,6 +87,7 @@ class CGNAnomaly(nn.Module):
         self.config.h_channels = h_channels
         self.config.n_classes = n_classes
         self.config.img_dim = img_dim
+        self.config.img_channels = img_channels
         self.config.disc_model = disc_model
         self.config.disc_h_dim = disc_h_dim
         self.config.batch_size = batch_size

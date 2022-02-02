@@ -50,7 +50,7 @@ class CGN(nn.Module):
 
     def __init__(self, n_classes=10, latent_sz=32, ngf=32,
                  init_type='orthogonal', init_gain=0.1, img_sz=32,
-                 batch_size=1):
+                 img_channels=3, batch_size=1):
         super(CGN, self).__init__()
 
         # params
@@ -58,13 +58,14 @@ class CGN(nn.Module):
         self.n_classes = n_classes
         self.latent_sz = latent_sz
         self.label_emb = nn.Embedding(n_classes, n_classes)
+        self.img_channels = img_channels
         init_sz = img_sz // 4
         inp_dim = self.latent_sz + self.n_classes
 
         # models
         self.f_shape = nn.Sequential(*shape_layers(inp_dim, 1, ngf, init_sz))
-        self.f_text1 = nn.Sequential(*texture_layers(inp_dim, 3, ngf, init_sz), nn.Tanh())
-        self.f_text2 = nn.Sequential(*texture_layers(inp_dim, 3, ngf, init_sz), nn.Tanh())
+        self.f_text1 = nn.Sequential(*texture_layers(inp_dim, img_channels, ngf, init_sz), nn.Tanh())
+        self.f_text2 = nn.Sequential(*texture_layers(inp_dim, img_channels, ngf, init_sz), nn.Tanh())
         self.shuffler = nn.Sequential(Patch2Image(img_sz, 2), RandomCrop(img_sz))
 
         init_net(self, init_type=init_type, init_gain=init_gain)
@@ -87,7 +88,7 @@ class CGN(nn.Module):
 
         # Masker
         mask = self.f_shape(inp0)
-        mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, 3, 1, 1)
+        mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.img_channels, 1, 1)
 
         # foreground & background
         foreground = self.shuffler(self.f_text1(inp1))
