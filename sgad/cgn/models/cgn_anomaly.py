@@ -12,7 +12,7 @@ import pandas
 import os
 
 from sgad.shared.losses import BinaryLoss, PerceptualLoss
-from sgad.utils import save_cfg, Optimizers
+from sgad.utils import save_cfg, Optimizers, compute_auc
 from .cgn import CGN
 from .discriminator import DiscLin, DiscConv
 from sgad.cgn.dataloader import Subset
@@ -35,6 +35,7 @@ class CGNAnomaly(nn.Module):
                 lambdas_perc=[0.01, 0.05, 0.0, 0.01],
                 lr=0.0002,
                 betas=[0.5, 0.999],
+                device=None
                 ):
 
         super(CGNAnomaly, self).__init__()
@@ -72,14 +73,8 @@ class CGNAnomaly(nn.Module):
         # reset seed
         torch.random.seed()
         
-        # push to device and train
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device = device
-        self.cgn = self.cgn.to(device)
-        self.discriminator = self.discriminator.to(device)
-        self.adv_loss = self.adv_loss.to(device)
-        self.binary_loss = self.binary_loss.to(device)
-        self.perc_loss = self.perc_loss.to(device)
+        # choose device automatically
+        self.move_to(device)
 
         # create config
         self.config = CN()
@@ -93,6 +88,7 @@ class CGNAnomaly(nn.Module):
         self.config.batch_size = batch_size
         self.config.init_type = init_type
         self.config.init_gain = init_gain
+        self.config.init_seed = init_seed
         self.config.lambda_mask = lambda_mask
         self.config.lambdas_perc = lambdas_perc
         self.config.lr = lr
@@ -105,6 +101,7 @@ class CGNAnomaly(nn.Module):
         return self.cgn.forward(ys, counterfactual)
 
     def fit(self, X, y=None,
+            X_val=None, y_val=None,
             n_epochs=20, 
             save_iter=1000, 
             verb=True, 
@@ -122,10 +119,15 @@ class CGNAnomaly(nn.Module):
             batch_size=self.config.batch_size, 
             shuffle=True, 
             num_workers=workers)
+
+        # also check the validation data
+        if X_val is not None and y_val is None:
+            raise ValueError("X_val given without y_val - please provide it as well.")
+        auc_val = -1.0
         
         # loss values
         losses_all = {'iter': [], 'epoch': [], 'g_adv': [], 'g_binary': [], 'g_perc': [], 
-            'd_real': [], 'd_fake': []}
+            'd_real': [], 'd_fake': [], 'auc_val': []}
 
         # setup save paths
         if save_results and save_path == None:
@@ -208,12 +210,14 @@ class CGNAnomaly(nn.Module):
                 losses_all['g_perc'].append(get_val(losses_g['perc'].data))
                 losses_all['d_real'].append(get_val(losses_d['real'].data))
                 losses_all['d_fake'].append(get_val(losses_d['fake'].data))
+                losses_all['auc_val'].append(auc_val)
 
                 # output
                 if verb:
                     msg = f"[Batch {i}/{len(tr_loader)}]"
                     msg += ''.join([f"[{k}: {v:.3f}]" for k, v in losses_d.items()])
                     msg += ''.join([f"[{k}: {v:.3f}]" for k, v in losses_g.items()])
+                    msg += ''.join(f"[auc val: {auc_val:.3f}]")
                     pbar.set_description(msg)
 
                 # Saving
@@ -227,8 +231,23 @@ class CGNAnomaly(nn.Module):
                             f"{weights_path}/discriminator_{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
-                
-        return losses_all
+
+            # after every epoch, print the val auc
+            if X_val is not None:
+                scores_val = self.predict(X_val)
+                _auc_val = compute_auc(y_val, scores_val)
+                # also copy the 
+                if _auc_val > auc_val:
+                    best_model = self.cpu_copy()
+                    best_epoch = epoch+1
+                auc_val = _auc_val
+        
+        # finally return self copy if we did not track validation performance 
+        if X_val is None:
+            best_model = self.cpu_copy()
+            best_epoch = n_epochs
+
+        return losses_all, (best_model, best_epoch)
 
     def generate(self, y):
         mask, foreground, background = self.cgn(y)
@@ -310,4 +329,45 @@ class CGNAnomaly(nn.Module):
     def save_weights(self, cgn_file, disc_file):
         torch.save(self.cgn.state_dict(), cgn_file)
         torch.save(self.discriminator.state_dict(), disc_file)
+
+    def move_to(self, device=None):
+        if device is None:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            device = torch.device(device)
+        
+        # push to device and train
+        self.device = device
+        self.cgn = self.cgn.to(device)
+        self.discriminator = self.discriminator.to(device)
+        self.adv_loss = self.adv_loss.to(device)
+        self.binary_loss = self.binary_loss.to(device)
+        self.perc_loss = self.perc_loss.to(device)
+
+    def cpu_copy(self):
+        device = self.device # save the original device
+        self.move_to('cpu') # move to cpu
+        cgn = copy.deepcopy(self.cgn)
+        disc = copy.deepcopy(self.discriminator)
+        self.move_to(device) # move it back
+        cp = CGNAnomaly( # now create a cpu copy
+                z_dim=self.config.z_dim,
+                h_channels=self.config.h_channels,
+                n_classes=self.config.n_classes,
+                img_dim=self.config.img_dim,
+                img_channels=self.config.img_channels,
+                disc_model=self.config.disc_model,
+                disc_h_dim=self.config.disc_h_dim,
+                batch_size=self.config.batch_size,
+                init_type=self.config.init_type, 
+                init_gain=self.config.init_gain,
+                init_seed=self.config.init_seed,
+                lambda_mask=self.config.lambda_mask,
+                lambdas_perc=self.config.lambdas_perc,
+                lr=self.config.lr,
+                betas=self.config.betas,
+                device='cpu')
+        cp.cgn = cgn
+        cp.disc = disc
+        return cp
                         

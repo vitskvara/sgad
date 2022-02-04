@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import torch.nn.functional as F
 from torchvision.utils import save_image
+from sklearn import metrics
 
 def check_create_datadir():
     sgaddf = os.path.join(os.path.expanduser("~"), ".sgad_datapath")
@@ -76,3 +77,7 @@ def split_data_labels(data, labels, split_inds):
     tr_labels, val_labels, tst_labels = labels[tr_inds], labels[val_inds], labels[tst_inds]
 
     return (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels)
+
+def compute_auc(labels, scores, pos_label=1):
+    fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=pos_label)
+    return metrics.auc(fpr, tpr)

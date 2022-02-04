@@ -6,9 +6,11 @@ import os
 import torch 
 import shutil
 
-from sgad.utils import load_cifar10
+from sgad.utils import load_cifar10, compute_auc
 from sgad.cgn import Subset
 from sgad.cgn.models import CGNAnomaly
+
+X_raw, y_raw = load_cifar10()
 
 class TestConstructor(unittest.TestCase):
     def test_default(self):
@@ -121,8 +123,6 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.opts._modules['generator'].defaults['betas'] == [0.48, 0.99])
         self.assertTrue(model.opts._modules['discriminator'].defaults['betas'] == [0.48, 0.99])
 
-X_raw, y_raw = load_cifar10()
-
 class TestUtils(unittest.TestCase):
     def test_generate_random(self):
         model = CGNAnomaly()
@@ -152,14 +152,23 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(os.path.isfile(f"{_tmp}/3_1_background.png"))
         shutil.rmtree(_tmp)
 
+    def test_cpu_copy(self):
+        model = CGNAnomaly()
+        device = model.device
+        cpu_model = model.cpu_copy()
+        # make sure that the device does not change after the copy
+        self.assertTrue(device.type == next(model.cgn.parameters()).device.type)
+        if device.type != 'cuda':
+            self.assertTrue(device.type == next(cpu_model.cgn.parameters()).device.type)
+
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
         model = CGNAnomaly(batch_size=32)
         X = X_raw[y_raw==0][:5000]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all = model.fit(
+        losses_all, (best_model, best_epoch) = model.fit(
             X, 
-            n_epochs=1, 
+            n_epochs=3, 
             save_iter=100, 
             verb=True, 
             save_results=True, 
@@ -176,13 +185,42 @@ class TestFit(unittest.TestCase):
         self.assertTrue(os.path.isfile(f"{_tmp}/samples/3_100_background.png"))
         self.assertTrue(os.path.isfile(f"{_tmp}/weights/cgn_100.pth"))
         self.assertTrue(os.path.isfile(f"{_tmp}/weights/discriminator_100.pth"))
+        self.assertTrue(best_epoch == 3)
+        shutil.rmtree(_tmp)
+
+    def test_fit_validation(self):
+        model = CGNAnomaly(batch_size=32)
+        X = X_raw[y_raw==0][:5000]
+        X_val = X_raw[:5000]
+        y_val = y_raw[:5000]
+        _tmp = "./_cgn_anomaly_tmp"
+        losses_all, (best_model, best_epoch) = model.fit(
+            X, 
+            X_val = X_val,
+            y_val = y_val,
+            n_epochs=15, 
+            save_iter=500, 
+            verb=True, 
+            save_results=True, 
+            save_path=_tmp, 
+            workers=12
+        )
+        if best_epoch != 15:
+            p = float(next(model.cgn.parameters()).data)
+            best_p = float(next(best_model.cgn.parameters()).data)
+            self.assertTrue(p != best_p)
+            auc_model = compute_auc(y_val, model.predict(X_val))
+            model.move_to('cpu')
+            best_model.move_to('cuda')
+            auc_best_model = compute_auc(y_val, best_model.predict(X_val))
+            #self.assertTrue(auc_best_model >= auc_model)
         shutil.rmtree(_tmp)
 
     def test_fit_bw(self):
         model = CGNAnomaly(batch_size=32, img_channels=1)
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all = model.fit(
+        losses_all, (best_model, best_epoch) = model.fit(
             X, 
             n_epochs=1, 
             save_iter=100, 
@@ -207,7 +245,7 @@ class TestFit(unittest.TestCase):
         model = CGNAnomaly(batch_size=32, img_channels=1, disc_model="conv")
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all = model.fit(
+        losses_all, (best_model, best_epoch) = model.fit(
             X, 
             n_epochs=1, 
             save_iter=100, 
@@ -231,7 +269,7 @@ class TestFit(unittest.TestCase):
 # train a model for score testing
 model = CGNAnomaly(batch_size=32)
 X = X_raw[y_raw==0][:5000]
-losses_all = model.fit(X, n_epochs=5, verb=True, save_results=False)
+losses_all, best_model = model.fit(X, n_epochs=5, verb=True, save_results=False)
 X_test = X_raw[y_raw!=0][:5000]
 
 class TestPredict(unittest.TestCase):
