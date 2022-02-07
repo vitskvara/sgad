@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torchvision.utils import save_image
 import pandas
 import os
+import time
 
 from sgad.shared.losses import BinaryLoss, PerceptualLoss
 from sgad.utils import save_cfg, Optimizers, compute_auc
@@ -107,7 +108,8 @@ class CGNAnomaly(nn.Module):
             verb=True, 
             save_results=True, 
             save_path=None, 
-            workers=12
+            workers=12,
+            max_train_time=np.inf # in seconds
         ):
         """Fit the model given X (and possibly y).
 
@@ -148,6 +150,7 @@ class CGNAnomaly(nn.Module):
 
         pbar = tqdm(range(n_epochs))
         niter = 0
+        start_time = time.time()
         for epoch in pbar:
             for i, data in enumerate(tr_loader):
 
@@ -232,6 +235,11 @@ class CGNAnomaly(nn.Module):
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
 
+                # exit if running for too long
+                run_time = time.time() - start_time
+                if run_time > max_train_time:
+                    break
+
             # after every epoch, print the val auc
             if X_val is not None:
                 self.eval()
@@ -243,7 +251,12 @@ class CGNAnomaly(nn.Module):
                     best_epoch = epoch+1
                     best_auc_val = auc_val
                 self.train()
-        
+
+            # exit if running for too long
+            if run_time > max_train_time:
+                print("Given runtime exceeded, ending training prematurely.")
+                break
+            
         # finally return self copy if we did not track validation performance 
         if X_val is None:
             best_model = self.cpu_copy()

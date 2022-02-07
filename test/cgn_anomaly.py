@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import os
 import torch 
 import shutil
+import time
 
 from sgad.utils import load_cifar10, compute_auc
 from sgad.cgn import Subset
@@ -67,7 +68,6 @@ class TestConstructor(unittest.TestCase):
         x_gen = model.generate_random(2)
         self.assertTrue(all(np.array(x_gen.shape) == [2, 1, 32, 32]))
         self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 1, 32, 32]))
-
 
     def test_disc_model(self):
         model = CGNAnomaly(disc_model = 'conv')
@@ -194,24 +194,27 @@ class TestFit(unittest.TestCase):
         self.assertTrue(best_epoch == 3)
         shutil.rmtree(_tmp)
 
-    def test_fit_validation(self):
+    def test_fit_validation_train_time(self):
         model = CGNAnomaly(batch_size=32)
         X = X_raw[y_raw==0][:5000]
         X_val = X_raw[:5000]
         y_val = y_raw[:5000]
         _tmp = "./_cgn_anomaly_tmp"
+        n_epochs = 15
+        t_start = time.time()
         losses_all, (best_model, best_epoch) = model.fit(
             X, 
             X_val = X_val,
             y_val = y_val,
-            n_epochs=30, 
+            n_epochs=n_epochs, 
             save_iter=500, 
             verb=True, 
             save_results=True, 
             save_path=_tmp, 
             workers=12
         )
-        if best_epoch != 15:
+        t_fit = time.time() - t_start
+        if best_epoch != n_epochs:
             p = float(next(model.cgn.parameters()).data)
             best_p = float(next(best_model.cgn.parameters()).data)
             self.assertTrue(p != best_p)
@@ -221,6 +224,24 @@ class TestFit(unittest.TestCase):
             auc_best_model = compute_auc(y_val, best_model.predict(X_val))
             #self.assertTrue(auc_best_model >= auc_model)
         shutil.rmtree(_tmp)
+
+        # compare the train time with the previous run
+        model = CGNAnomaly(batch_size=32)
+        max_train_time = 10 # seconds
+        t_start = time.time()
+        losses_all, (best_model, best_epoch) = model.fit(
+            X, 
+            X_val = X_val,
+            y_val = y_val,
+            n_epochs=n_epochs, 
+            save_iter=500, 
+            verb=True, 
+            save_results=True, 
+            save_path=_tmp, 
+            workers=12,
+            max_train_time = max_train_time
+        )
+        self.assertTrue(time.time() - t_start < t_fit)
 
     def test_fit_bw(self):
         model = CGNAnomaly(batch_size=32, img_channels=1)
