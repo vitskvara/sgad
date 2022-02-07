@@ -123,7 +123,7 @@ class CGNAnomaly(nn.Module):
         # also check the validation data
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
-        auc_val = -1.0
+        auc_val = best_auc_val = -1.0
         
         # loss values
         losses_all = {'iter': [], 'epoch': [], 'g_adv': [], 'g_binary': [], 'g_perc': [], 
@@ -235,12 +235,12 @@ class CGNAnomaly(nn.Module):
             # after every epoch, print the val auc
             if X_val is not None:
                 scores_val = self.predict(X_val)
-                _auc_val = compute_auc(y_val, scores_val)
-                # also copy the 
-                if _auc_val > auc_val:
+                auc_val = compute_auc(y_val, scores_val)
+                # also copy the params
+                if auc_val > best_auc_val:
                     best_model = self.cpu_copy()
                     best_epoch = epoch+1
-                auc_val = _auc_val
+                    best_auc_val = auc_val
         
         # finally return self copy if we did not track validation performance 
         if X_val is None:
@@ -368,6 +368,6 @@ class CGNAnomaly(nn.Module):
                 betas=self.config.betas,
                 device='cpu')
         cp.cgn = cgn
-        cp.disc = disc
+        cp.discriminator = disc
         return cp
                         

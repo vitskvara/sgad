@@ -160,6 +160,12 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(device.type == next(model.cgn.parameters()).device.type)
         if device.type != 'cuda':
             self.assertTrue(device.type == next(cpu_model.cgn.parameters()).device.type)
+        p1 = next(iter(cpu_model.cgn.parameters())).data.to('cpu')[0]
+        p2 = next(iter(model.cgn.parameters())).data.to('cpu')[0]
+        self.assertTrue(p1 == p2)
+        p1 = next(iter(cpu_model.discriminator.parameters())).data.to('cpu')[0]
+        p2 = next(iter(model.discriminator.parameters())).data.to('cpu')[0]
+        self.assertTrue(p1 == p2)
 
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
@@ -198,7 +204,7 @@ class TestFit(unittest.TestCase):
             X, 
             X_val = X_val,
             y_val = y_val,
-            n_epochs=15, 
+            n_epochs=30, 
             save_iter=500, 
             verb=True, 
             save_results=True, 
