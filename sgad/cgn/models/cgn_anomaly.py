@@ -234,6 +234,7 @@ class CGNAnomaly(nn.Module):
 
             # after every epoch, print the val auc
             if X_val is not None:
+                self.eval()
                 scores_val = self.predict(X_val)
                 auc_val = compute_auc(y_val, scores_val)
                 # also copy the params
@@ -241,10 +242,12 @@ class CGNAnomaly(nn.Module):
                     best_model = self.cpu_copy()
                     best_epoch = epoch+1
                     best_auc_val = auc_val
+                self.train()
         
         # finally return self copy if we did not track validation performance 
         if X_val is None:
             best_model = self.cpu_copy()
+            best_model.eval()
             best_epoch = n_epochs
 
         return losses_all, (best_model, best_epoch)
