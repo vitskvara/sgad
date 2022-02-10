@@ -286,10 +286,10 @@ class CGNAnomaly(nn.Module):
             save_image(x.data, path, nrow=n_rows, normalize=True, padding=2)
 
         Path(sample_path).mkdir(parents=True, exist_ok=True)
-        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_rows)
-        save(mask.data, f"{sample_path}/1_{batches_done:d}_mask.png", n_rows)
-        save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_rows)
-        save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_rows)
+        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_rows, sz=self.img_dim)
+        save(mask.data, f"{sample_path}/1_{batches_done:d}_mask.png", n_rows, sz=self.img_dim)
+        save(foreground.data, f"{sample_path}/2_{batches_done:d}_foreground.png", n_rows, sz=self.img_dim)
+        save(background.data, f"{sample_path}/3_{batches_done:d}_background.png", n_rows, sz=self.img_dim)
 
     def predict(self, X, score_type="discriminator", workers=12):
         if not score_type in ["discriminator", "perceptual"]:
