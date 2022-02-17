@@ -375,12 +375,13 @@ class VAE(nn.Module):
     def save_sample_images(self, x, sample_path, batches_done, n_cols=3):
         """Saves a grid of generated and reconstructed digits"""
         x_gen = [self.generate(10).to('cpu') for _ in range(n_cols)]
-        x_gen = torch.concat(x_gen_sampled, 0)
+        x_gen = torch.concat(x_gen, 0)
         x_gen_mean = [self.generate_mean(10).to('cpu') for _ in range(n_cols)]
         x_gen_mean = torch.concat(x_gen_mean, 0)
         _x = torch.tensor(x).to(self.device)
         x_reconstructed = self.reconstruct(_x).to('cpu')
         x_reconstructed_mean = self.reconstruct_mean(_x).to('cpu')
+        _x = _x.to('cpu')
 
         def save(x, path, n_cols, sz=64):
             x = F.interpolate(x, (sz, sz))
@@ -389,8 +390,8 @@ class VAE(nn.Module):
         Path(sample_path).mkdir(parents=True, exist_ok=True)
         save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_cols, sz=self.config.img_dim)
         save(x_gen_mean.data, f"{sample_path}/1_{batches_done:d}_x_gen_mean.png", n_cols, sz=self.config.img_dim)
-        save(torch.concat((x, x_reconstructed) 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
-        save(torch.concat((x, x_reconstructed_mean) 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
+        save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
+        save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
         
     def move_to(self, device=None):
         if device is None:
@@ -400,7 +401,7 @@ class VAE(nn.Module):
         
         # push to device and train
         self.device = device
-        self.to(device)
+        self = self.to(device)
 
     def num_params(self):
         s = 0
