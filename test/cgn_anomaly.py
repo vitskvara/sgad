@@ -172,7 +172,7 @@ class TestFit(unittest.TestCase):
         model = CGNAnomaly(batch_size=32)
         X = X_raw[y_raw==0][:5000]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all, (best_model, best_epoch) = model.fit(
+        losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=3, 
             save_iter=100, 
@@ -202,7 +202,7 @@ class TestFit(unittest.TestCase):
         _tmp = "./_cgn_anomaly_tmp"
         n_epochs = 15
         t_start = time.time()
-        losses_all, (best_model, best_epoch) = model.fit(
+        losses_all, best_model, best_epoch = model.fit(
             X, 
             X_val = X_val,
             y_val = y_val,
@@ -229,7 +229,7 @@ class TestFit(unittest.TestCase):
         model = CGNAnomaly(batch_size=32)
         max_train_time = 10 # seconds
         t_start = time.time()
-        losses_all, (best_model, best_epoch) = model.fit(
+        losses_all, best_model, best_epoch = model.fit(
             X, 
             X_val = X_val,
             y_val = y_val,
@@ -247,7 +247,7 @@ class TestFit(unittest.TestCase):
         model = CGNAnomaly(batch_size=32, img_channels=1)
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all, (best_model, best_epoch) = model.fit(
+        losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=1, 
             save_iter=100, 
@@ -272,7 +272,7 @@ class TestFit(unittest.TestCase):
         model = CGNAnomaly(batch_size=32, img_channels=1, disc_model="conv")
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
         _tmp = "./_cgn_anomaly_tmp"
-        losses_all, (best_model, best_epoch) = model.fit(
+        losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=1, 
             save_iter=100, 

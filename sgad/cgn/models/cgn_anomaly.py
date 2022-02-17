@@ -263,7 +263,7 @@ class CGNAnomaly(nn.Module):
             best_model.eval()
             best_epoch = n_epochs
 
-        return losses_all, (best_model, best_epoch)
+        return losses_all, best_model, best_epoch
 
     def generate(self, y):
         mask, foreground, background = self.cgn(y)
