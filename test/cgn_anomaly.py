@@ -25,7 +25,7 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(all(np.array(model.generate_random(2).shape) == [2, 3, 32, 32]))
         self.assertTrue(type(model.discriminator.model[0]) == torch.nn.modules.linear.Linear)
         self.assertTrue(model.discriminator.model[0].out_features == 32)
-        self.assertTrue(model.config.batch_size == 1)
+        self.assertTrue(model.config.batch_size == 32)
         self.assertTrue(model.config.init_type == 'orthogonal')
         self.assertTrue(model.config.init_gain == 0.1)
         self.assertTrue(model.config.lambda_mask == 0.3)
