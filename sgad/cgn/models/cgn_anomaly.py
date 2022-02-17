@@ -28,7 +28,7 @@ class CGNAnomaly(nn.Module):
                 img_channels=3,
                 disc_model='linear',
                 disc_h_dim=32,
-                batch_size=1,  # does this need to be here?
+                batch_size=32,
                 init_type='orthogonal', 
                 init_gain=0.1,
                 init_seed=None,
