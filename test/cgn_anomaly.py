@@ -296,7 +296,7 @@ class TestFit(unittest.TestCase):
 # train a model for score testing
 model = CGNAnomaly(batch_size=32)
 X = X_raw[y_raw==0][:5000]
-losses_all, best_model = model.fit(X, n_epochs=5, verb=True, save_results=False)
+losses_all, best_model, best_epoch = model.fit(X, n_epochs=5, verb=True, save_results=False)
 X_test = X_raw[y_raw!=0][:5000]
 
 class TestPredict(unittest.TestCase):
