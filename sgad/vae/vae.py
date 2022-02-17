@@ -99,9 +99,13 @@ class VAE(nn.Module):
             self.decoder = ShapeDecoder(z_dim, img_channels+1, h_channels, init_sz)
         else:
             raise ValueError(f'vae type {vae_type} unknown, try "shape"')
+
+        # mu, log_var estimators
         self.mu_net_z = nn.Linear(z_dim*2, z_dim)
         self.log_var_net_z = nn.Linear(z_dim*2, z_dim)
         self.mu_net_x = nn.Conv2d(img_channels+1, img_channels, 3, stride=1, padding=1, bias=False)
+        # either use a convnet or a trainable scalar for log_var_x
+        # but also you can support your own function that uses the output of the last layer of the decoder
         if log_var_x_estimate == "conv_net":
             self.log_var_net_x = nn.Sequential(
                 nn.Conv2d(img_channels+1, 1, 3, stride=1, padding=1, bias=False),
@@ -224,6 +228,8 @@ class VAE(nn.Module):
         """Fit the model given X (and possibly y).
 
         If y is supported, the classes should be labeled by integers like in range(n_classes).
+
+        Returns (losses_all, best_model, best_epoch)
         """
         # setup the dataloader
         y = torch.zeros(X.shape[0]).long() if y is None else y
@@ -347,7 +353,7 @@ class VAE(nn.Module):
             best_model.eval()
             best_epoch = n_epochs
 
-        return losses_all, (best_model, best_epoch)
+        return losses_all, best_model, best_epoch
 
     def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
@@ -491,4 +497,3 @@ class VAE(nn.Module):
         cp.log_var_x_global = log_var_x_global
         
         return cp
-                        
