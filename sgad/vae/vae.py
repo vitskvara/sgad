@@ -35,7 +35,7 @@ def ConvBlock(in_channels, out_channels):
         nn.LeakyReLU(0.2, inplace=True),
     ]
 
-def TextureEncoder(z_dim, img_channels, h_channels, img_dim):
+def Encoder(z_dim, img_channels, h_channels, img_dim):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
     return nn.Sequential(
@@ -49,6 +49,9 @@ def TextureEncoder(z_dim, img_channels, h_channels, img_dim):
 
 def TextureDecoder(z_dim, img_channels, h_channels, init_sz):
     return nn.Sequential(*texture_layers(z_dim, img_channels, h_channels, init_sz), nn.Tanh())
+
+def ShapeDecoder(z_dim, img_channels, h_channels, init_sz):
+    return nn.Sequential(*shape_layers(z_dim, img_channels, h_channels, init_sz))
 
 class VAE(nn.Module):
     def __init__(self, 
@@ -94,21 +97,25 @@ class VAE(nn.Module):
         init_sz = img_dim // 4
         
         # encoder + decoder
+        self.encoder = Encoder(z_dim, img_channels, h_channels, img_dim) 
         if vae_type == "texture":
-            self.encoder = TextureEncoder(z_dim, img_channels, h_channels, img_dim) 
+            self.out_channels = img_channels
             self.decoder = TextureDecoder(z_dim, img_channels+1, h_channels, init_sz)
+        elif vae_type == "shape"
+            self.out_channels = 1
+            self.decoder = ShapeDecoder(z_dim, 2, h_channels, init_sz)
         else:
             raise ValueError(f'vae type {vae_type} unknown, try "shape" or "texture"')
 
         # mu, log_var estimators
         self.mu_net_z = nn.Linear(z_dim*2, z_dim)
         self.log_var_net_z = nn.Linear(z_dim*2, z_dim)
-        self.mu_net_x = nn.Conv2d(img_channels+1, img_channels, 3, stride=1, padding=1, bias=False)
+        self.mu_net_x = nn.Conv2d(self.out_channels+1, self.out_channels, 3, stride=1, padding=1, bias=False)
         # either use a convnet or a trainable scalar for log_var_x
         # but also you can support your own function that uses the output of the last layer of the decoder
         if log_var_x_estimate == "conv_net":
             self.log_var_net_x = nn.Sequential(
-                nn.Conv2d(img_channels+1, 1, 3, stride=1, padding=1, bias=False),
+                nn.Conv2d(self.out_channels+1, 1, 3, stride=1, padding=1, bias=False),
                 Mean(1,2,3),
                 Reshape(-1,1,1,1)
                 )
