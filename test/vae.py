@@ -51,6 +51,27 @@ class TestConstructor(unittest.TestCase):
         b = float(model.encoder[0].weight[0,0,0,0].to('cpu'))
         self.assertTrue(a != b)
 
+def test_shape(self):
+        model = VAE(vae_type="shape")
+        self.assertTrue(model.num_params() > 5000)
+        self.assertTrue(len(next(iter(model.parameters()))) > 0)
+        self.assertTrue(model.encoder[0].in_channels == 3)
+        self.assertTrue(model.decoder[0].in_features == 32)
+        self.assertTrue(model.decoder[-4].out_channels == 2)
+        self.assertTrue(model.mu_net_z.in_features == 64)
+        self.assertTrue(model.mu_net_z.out_features == 32)
+        self.assertTrue(model.log_var_net_z.in_features == 64)
+        self.assertTrue(model.log_var_net_z.out_features == 32)
+        self.assertTrue(model.mu_net_x.in_channels == 2)
+        self.assertTrue(model.mu_net_x.out_channels == 1)
+        self.assertTrue(model.log_var_net_x[0].in_channels == 2)
+        self.assertTrue(model.log_var_net_x[0].out_channels == 1)
+
+        self.assertTrue(all(np.array(model.generate(2).shape) == [2, 1, 32, 32]))
+        self.assertTrue(all(np.array(model.generate_mean(2).shape) == [2, 1, 32, 32]))
+        
+        self.assertTrue(model.config.vae_type == "shape")
+
 # test that all the parts are trained
 # test the different constructors
 # rewrite save_stuff
