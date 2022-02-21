@@ -81,11 +81,26 @@ class TestFit(unittest.TestCase):
         nc = 0
         X = X_raw[y_raw == nc]
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1])
+        _tmp = "./_tmp_vae"
         model.fit(X,
             n_epochs=20, 
             save_iter=1000, 
             verb=True, 
             save_results=True, 
-            save_path="./_tmp_vae"
+            save_path=_tmp
            )
+        shutil.rmtree(_tmp)
         
+    def test_fit_shape(self):
+        nc = 0
+        X = X_raw[y_raw == nc]
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
+        _tmp = "./_tmp_vae"
+        model.fit(X,
+            n_epochs=20, 
+            save_iter=1000, 
+            verb=True, 
+            save_results=True, 
+            save_path=_tmp
+           )
+        shutil.rmtree(_tmp)
