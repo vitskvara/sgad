@@ -166,13 +166,36 @@ class VAE(nn.Module):
             return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
     
     def encode(self, x):
+        """Return the mean and log_var vectors of encodings in z space."""
         h = self.encoder(x)
         return self.mu_net_z(h), self.log_var_net_z(h)
+
+    def encoded(self, x):
+        """Returns the sampled encoded vectors in z space."""
+        mu_z, log_var_z = self.encode(x)
+        std_z = self.std(log_var_z)
+        return self.rp_trick(mu_z, std_z)
     
     def decode(self, z):
+        """Returns the mean and log_var decodings in x space."""
         h = self.decoder(z)
         return self.mu_net_x(h), self.log_var_net_x(h)
         
+    def decoded(self, z):
+        """Returns the sampled decodings in x space."""
+        mu_x, log_var_x = self.decode(z)
+        std_z = self.std(log_var_x)
+        return self.rp_trick(mu_x, std_z)
+
+    def reconstruct(self, x):
+        return self.decoded(self.encoded(x))
+
+    def reconstruct_mean(self, x):
+        mu_z, log_var_z = self.encode(x)
+        z = self.rp_trick(mu_z, self.std(log_var_z))
+        mu_x, log_var_x = self.decode(z)
+        return mu_x
+    
     def forward(self, x):
         return self.reconstruct(x)
     
@@ -372,18 +395,6 @@ class VAE(nn.Module):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         z = p.sample().to(self.device)
         return self.decode(z)[0]
-
-    def reconstruct(self, x):
-        mu_z, log_var_z = self.encode(x)
-        z = self.rp_trick(mu_z, self.std(log_var_z))
-        mu_x, log_var_x = self.decode(z)
-        return self.rp_trick(mu_x, self.std(log_var_x))
-
-    def reconstruct_mean(self, x):
-        mu_z, log_var_z = self.encode(x)
-        z = self.rp_trick(mu_z, self.std(log_var_z))
-        mu_x, log_var_x = self.decode(z)
-        return mu_x
 
     def save_sample_images(self, x, sample_path, batches_done, n_cols=3):
         """Saves a grid of generated and reconstructed digits"""
