@@ -101,7 +101,7 @@ class VAE(nn.Module):
         if vae_type == "texture":
             self.out_channels = img_channels
             self.decoder = TextureDecoder(z_dim, img_channels+1, h_channels, init_sz)
-        elif vae_type == "shape"
+        elif vae_type == "shape":
             self.out_channels = 1
             self.decoder = ShapeDecoder(z_dim, 2, h_channels, init_sz)
         else:
