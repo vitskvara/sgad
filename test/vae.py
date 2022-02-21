@@ -93,7 +93,7 @@ class TestFit(unittest.TestCase):
         
     def test_fit_shape(self):
         nc = 0
-        X = X_raw[y_raw == nc]
+        X = X_raw[y_raw == nc][:,0,:,:]
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
         _tmp = "./_tmp_vae"
         model.fit(X,
