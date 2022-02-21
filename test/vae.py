@@ -40,7 +40,7 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.config.init_type == "orthogonal")
         self.assertTrue(model.config.init_gain == 0.1)
         self.assertTrue(model.config.init_seed == None)
-        self.assertTrue(model.config.vae_type == "shape")
+        self.assertTrue(model.config.vae_type == "texture")
         self.assertTrue(model.config.std_approx == "exp")
         self.assertTrue(model.config.lr == 0.0002)
         self.assertTrue(model.config.betas == [0.5, 0.999])

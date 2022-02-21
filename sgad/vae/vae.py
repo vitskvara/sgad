@@ -35,7 +35,7 @@ def ConvBlock(in_channels, out_channels):
         nn.LeakyReLU(0.2, inplace=True),
     ]
 
-def ShapeEncoder(z_dim, img_channels, h_channels, img_dim):
+def TextureEncoder(z_dim, img_channels, h_channels, img_dim):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
     return nn.Sequential(
@@ -47,7 +47,7 @@ def ShapeEncoder(z_dim, img_channels, h_channels, img_dim):
                 nn.LeakyReLU(0.2, inplace=True)
             )
 
-def ShapeDecoder(z_dim, img_channels, h_channels, init_sz):
+def TextureDecoder(z_dim, img_channels, h_channels, init_sz):
     return nn.Sequential(*texture_layers(z_dim, img_channels, h_channels, init_sz), nn.Tanh())
 
 class VAE(nn.Module):
@@ -60,7 +60,7 @@ class VAE(nn.Module):
                  init_gain=0.1, 
                  init_seed=None,
                  batch_size=32, 
-                 vae_type="shape", 
+                 vae_type="texture", 
                  std_approx="exp",
                  lr=0.0002,
                  betas=[0.5, 0.999],
@@ -94,11 +94,11 @@ class VAE(nn.Module):
         init_sz = img_dim // 4
         
         # encoder + decoder
-        if vae_type == "shape":
-            self.encoder = ShapeEncoder(z_dim, img_channels, h_channels, img_dim) 
-            self.decoder = ShapeDecoder(z_dim, img_channels+1, h_channels, init_sz)
+        if vae_type == "texture":
+            self.encoder = TextureEncoder(z_dim, img_channels, h_channels, img_dim) 
+            self.decoder = TextureDecoder(z_dim, img_channels+1, h_channels, init_sz)
         else:
-            raise ValueError(f'vae type {vae_type} unknown, try "shape"')
+            raise ValueError(f'vae type {vae_type} unknown, try "shape" or "texture"')
 
         # mu, log_var estimators
         self.mu_net_z = nn.Linear(z_dim*2, z_dim)
