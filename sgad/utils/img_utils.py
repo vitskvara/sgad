@@ -9,7 +9,7 @@ def to_img(x, zoom=1, denormalize=False):
     if type(zoom) == int:
         zoom = (zoom, zoom)
     t = ToPILImage()
-    _x = torch.tensor(_x)
+    _x = torch.tensor(x)
     if len(x.shape) == 4:
         _x=torch.concat([_x[i,:,:,:] for i in range(_x.shape[0])],2)
     _x = _x.reshape(1, *_x.shape)
