@@ -96,7 +96,7 @@ class CGNAnomaly(nn.Module):
         self.config.betas = betas
                 
     def get_inp(self, ys):
-        return self.cgn.get_imp(ys)
+        return self.cgn.get_inp(ys)
 
     def forward(self, ys=None, counterfactual=False):
         return self.cgn.forward(ys, counterfactual)

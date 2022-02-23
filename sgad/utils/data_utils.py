@@ -40,7 +40,7 @@ def load_cifar10():
     labels = np.concatenate([x[b'labels'] for x in all_data])
     return data, labels
 
-def load_wildlife_mnist(train=True):
+def load_wildlife_mnist(train=True, denormalize=True):
     path = datadir("raw_datasets/wildlife_MNIST")
     if train:
         data = np.load(os.path.join(path, "data.npy"))
@@ -48,6 +48,8 @@ def load_wildlife_mnist(train=True):
     else:
         data = np.load(os.path.join(path, "data_test.npy"))
         labels = np.load(os.path.join(path, "labels_test.npy"))
+    if denormalize:
+        data = data*0.5 + 0.5
     return data, labels
 
 def load_svhn2():
