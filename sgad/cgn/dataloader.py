@@ -85,7 +85,7 @@ def split_dataset(dataset, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
     return Subset(tr_data, tr_labels), Subset(val_data, val_labels), Subset(tst_data, tst_labels)
 
 class Subset(Dataset):
-    def __init__(self, data, labels, normalize=True):
+    def __init__(self, data, labels, normalize=False):
         self.ims = data
         self.labels = labels
         self.normalize = normalize
@@ -93,7 +93,7 @@ class Subset(Dataset):
             self.T = transforms.Normalize(0.5, 0.5)
         else:
             self.T = lambda x: x
-                
+
     def __getitem__(self, idx):
         ret = {
             'ims': self.T(self.ims[idx]),
