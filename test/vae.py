@@ -6,7 +6,7 @@ import torch
 import shutil
 import time
 
-from sgad.vae import VAE
+from sgad.sgvae import VAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
 
 X_raw, y_raw = load_wildlife_mnist()
@@ -51,7 +51,7 @@ class TestConstructor(unittest.TestCase):
         b = float(model.encoder[0].weight[0,0,0,0].to('cpu'))
         self.assertTrue(a != b)
 
-def test_shape(self):
+    def test_shape(self):
         model = VAE(vae_type="shape")
         self.assertTrue(model.num_params() > 5000)
         self.assertTrue(len(next(iter(model.parameters()))) > 0)

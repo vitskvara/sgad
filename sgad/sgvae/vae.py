@@ -100,10 +100,10 @@ class VAE(nn.Module):
         self.encoder = Encoder(z_dim, img_channels, h_channels, img_dim) 
         if vae_type == "texture":
             self.out_channels = img_channels
-            self.decoder = TextureDecoder(z_dim, img_channels+1, h_channels, init_sz)
+            self.decoder = TextureDecoder(z_dim, self.out_channels+1, h_channels, init_sz)
         elif vae_type == "shape":
             self.out_channels = 1
-            self.decoder = ShapeDecoder(z_dim, 2, h_channels, init_sz)
+            self.decoder = ShapeDecoder(z_dim, self.out_channels+1, h_channels, init_sz)
         else:
             raise ValueError(f'vae type {vae_type} unknown, try "shape" or "texture"')
 
@@ -121,7 +121,7 @@ class VAE(nn.Module):
                 )
             self.log_var_x_global = None
         elif log_var_x_estimate == "global":
-            self.log_var_x_global = nn.Parameter(torch.Tensor([0.0]))
+            self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0]))
             self.log_var_net_x = lambda x: self.log_var_x_global
         else:
             warnings.warn(f"log_var_x_estimate {log_var_x_estimate} not known, you should set .log_var_net_x with a callable function")
