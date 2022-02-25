@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torchvision.utils import save_image
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 import numpy as np
 import copy
@@ -16,7 +17,7 @@ from sgad.cgn.dataloader import Subset
 from sgad.utils import Optimizers
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
-from sgad.sgvae.utils import rp_trick, batched_score
+from sgad.sgvae.utils import rp_trick, batched_score, logpx
 from sgad.shared.losses import BinaryLoss
 
 # Shape-Guided Variational AutoEncoder
@@ -155,11 +156,12 @@ class SGVAE(nn.Module):
                 x_hat = mask * foreground + (1 - mask) * background
                 mu_x = x_hat
                 log_var_x = self.log_var_net_x(x_hat)
-                logpx = torch.mean(self.logpx(x, mu_x, log_var_x))
+                std_x = self.std(log_var_x)
+                lpx = torch.mean(logpx(x, mu_x, std_x))
                 
                 # get elbo
                 kld = kld_s + kld_b + kld_f
-                elbo = torch.mean(kld - logpx)
+                elbo = torch.mean(kld - lpx)
                 
                 # get binary loss
                 bin_l = self.binary_loss(mask)
@@ -178,7 +180,7 @@ class SGVAE(nn.Module):
                 losses_all['epoch'].append(epoch)
                 losses_all['elbo'].append(get_val(elbo))
                 losses_all['kld'].append(get_val(kld))
-                losses_all['logpx'].append(get_val(logpx))
+                losses_all['logpx'].append(get_val(lpx))
                 losses_all['auc_val'].append(auc_val)
                 losses_all['kld_shape'].append(get_val(kld_s))
                 losses_all['kld_background'].append(get_val(kld_b))
@@ -190,7 +192,7 @@ class SGVAE(nn.Module):
                     msg = f"[Batch {i}/{len(tr_loader)}]"
                     msg += ''.join(f"[elbo: {get_val(elbo):.3f}]")
                     msg += ''.join(f"[kld: {get_val(kld):.3f}]")
-                    msg += ''.join(f"[logpx: {get_val(logpx):.3f}]")
+                    msg += ''.join(f"[logpx: {get_val(lpx):.3f}]")
                     msg += ''.join(f"[binary: {get_val(bin_l):.3f}]")
                     msg += ''.join(f"[auc val: {auc_val:.3f}]")
                     pbar.set_description(msg)
@@ -228,6 +230,8 @@ class SGVAE(nn.Module):
                 print("Given runtime exceeded, ending training prematurely.")
                 break
 
+        best_model = None
+        best_epoch = None
         return losses_all, best_model, best_epoch
 
     def std(self, log_var):
@@ -235,12 +239,7 @@ class SGVAE(nn.Module):
             return torch.exp(log_var/2)
         else:
             return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
-   
-    def logpx(self, x, mu, log_var):
-        """here input mu_x, log_var_x"""
-        p = torch.distributions.Normal(mu, self.std(log_var))
-        return p.log_prob(x).sum((1,2,3))
-    
+       
     def _encode(self, vae, x):
         """Returns sampled z and kld for given vae."""
         mu_z, log_var_z = vae.encode(x)
@@ -363,11 +362,13 @@ class SGVAE(nn.Module):
         x_gen_mean = [self.generate_mean(10).to('cpu') for _ in range(n_cols)]
         x_gen_mean = torch.concat(x_gen_mean, 0)
         _x = torch.tensor(x).to(self.device)
-        mask, foreground, background = self(x)
-        x_reconstructed = self.reconstruct(_x).to('cpu')
+        mask, foreground, background = self(_x)
+        x_reconstructed = self.reconstruct(_x)
         x_reconstructed = torch.concat((x_reconstructed, mask, foreground, background), 0)
-        x_reconstructed_mean = self.reconstruct_mean(_x).to('cpu')
+        x_reconstructed = x_reconstructed.to('cpu')
+        x_reconstructed_mean = self.reconstruct_mean(_x)
         x_reconstructed_mean = torch.concat((x_reconstructed_mean, mask, foreground, background), 0)
+        x_reconstructed_mean = x_reconstructed_mean.to('cpu')
         _x = _x.to('cpu')
 
         def save(x, path, n_cols, sz=64):
@@ -393,11 +394,11 @@ class SGVAE(nn.Module):
         
         # get the scores
         if score_type == "logpx":
-            return batched_score(self.logpx_score, loader, self.device, *args, **kwargs)
+            return batched_score(self.logpx, loader, self.device, *args, **kwargs)
         else:
             raise ValueError("unknown score type")
 
-    def logpx_score(self, x, n=1, shuffle=False):
+    def logpx(self, x, n=1, shuffle=False):
         lpxs = []
         for i in range(n):
             # get zs and components
@@ -408,7 +409,7 @@ class SGVAE(nn.Module):
             mu_x = mask * foreground + (1 - mask) * background
             log_var_x = self.log_var_net_x(mu_x)
             std_x = self.std(log_var_x)
-            lpx = self.logpx(x, mu_x, log_var_x)
+            lpx = logpx(x, mu_x, std_x)
             lpxs.append(lpx.data.to('cpu').numpy())
 
         return np.mean(lpxs, 0)

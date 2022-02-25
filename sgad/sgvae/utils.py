@@ -41,6 +41,11 @@ def rp_trick(mu, std):
     p = torch.distributions.Normal(mu, std)
     return p.rsample()
 
+def logpx(x, mu, std):
+    """Normal log prob."""
+    p = torch.distributions.Normal(mu, std)
+    return p.log_prob(x).sum((1,2,3))
+
 def batched_score(scoref, loader, device, *args, **kwargs):
     scores = []
     labels = []

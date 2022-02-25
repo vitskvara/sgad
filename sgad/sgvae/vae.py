@@ -19,7 +19,7 @@ from sgad.cgn.models.cgn import Reshape
 from sgad.cgn.models.cgn import init_net
 from sgad.utils import save_cfg, Optimizers, compute_auc
 from sgad.cgn.dataloader import Subset
-from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick, batched_score
+from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick, batched_score, logpx
 
 class VAE(nn.Module):
     def __init__(self, 
@@ -193,10 +193,10 @@ class VAE(nn.Module):
                 # decode, compute logpx
                 mu_x, log_var_x = self.decode(z)
                 std_x = self.std(log_var_x)
-                logpx = torch.mean(self.logpx(x, mu_x, log_var_x))
+                lpx = torch.mean(logpx(x, mu_x, std_x))
 
                 # compute elbo
-                elbo = torch.mean(kld - logpx)
+                elbo = torch.mean(kld - lpx)
 
                 # do a step    
                 self.opts.zero_grad(['vae'])
@@ -211,7 +211,7 @@ class VAE(nn.Module):
                 losses_all['epoch'].append(epoch)
                 losses_all['elbo'].append(get_val(elbo))
                 losses_all['kld'].append(get_val(kld))
-                losses_all['logpx'].append(get_val(logpx))
+                losses_all['logpx'].append(get_val(lpx))
                 losses_all['auc_val'].append(auc_val)
 
                 # output
@@ -219,7 +219,7 @@ class VAE(nn.Module):
                     msg = f"[Batch {i}/{len(tr_loader)}]"
                     msg += ''.join(f"[elbo: {get_val(elbo):.3f}]")
                     msg += ''.join(f"[kld: {get_val(kld):.3f}]")
-                    msg += ''.join(f"[logpx: {get_val(logpx):.3f}]")
+                    msg += ''.join(f"[logpx: {get_val(lpx):.3f}]")
                     msg += ''.join(f"[auc val: {auc_val:.3f}]")
                     pbar.set_description(msg)
 
@@ -306,12 +306,7 @@ class VAE(nn.Module):
     def kld(self, mu, log_var):
         """here input mu_z, log_var_z"""
         return (torch.exp(log_var) + mu.pow(2) - log_var - 1.0).sum(1)/2
-        
-    def logpx(self, x, mu, log_var):
-        """here input mu_x, log_var_x"""
-        p = torch.distributions.Normal(mu, self.std(log_var))
-        return p.log_prob(x).sum((1,2,3))
-        
+                
     def elbo(self, x):
         # first propagate everything
         mu_z, log_var_z = self.encode(x)
@@ -325,7 +320,7 @@ class VAE(nn.Module):
         kl = self.kld(mu_z, log_var_z)
         
         # compute logpx
-        lpx = self.logpx(x, mu_x, log_var_x)
+        lpx = logpx(x, mu_x, std_x)
         
         return kl - lpx
 
@@ -393,17 +388,17 @@ class VAE(nn.Module):
         
         # get the scores
         if score_type == "logpx":
-            return batched_score(self.logpx_score, loader, self.device, *args, **kwargs)
+            return batched_score(self.logpx, loader, self.device, *args, **kwargs)
         else:
             raise ValueError("unknown score type")
 
-    def logpx_score(self, x, n=1):
+    def logpx(self, x, n=1):
         lpxs = []
         for i in range(n):
             z = self.encoded(x)
             mu_x, log_var_x = self.decode(z)
             std_x = self.std(log_var_x)
-            lpx = self.logpx(x, mu_x, log_var_x)
+            lpx = logpx(x, mu_x, std_x)
             lpxs.append(lpx.data.to('cpu').numpy())
 
         return np.mean(lpxs, 0)

@@ -168,11 +168,12 @@ class TestUtils(unittest.TestCase):
         p2 = next(iter(model.discriminator.parameters())).data.to('cpu')[0]
         self.assertTrue(p1 == p2)
 
+_tmp = "./_cgn_anomaly_tmp"
+
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
         model = CGNAnomaly(batch_size=32)
         X = X_raw[y_raw==0][:5000]
-        _tmp = "./_cgn_anomaly_tmp"
         losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=3, 
@@ -200,7 +201,6 @@ class TestFit(unittest.TestCase):
         X = X_raw[y_raw==0][:5000]
         X_val = X_raw[:5000]
         y_val = y_raw[:5000]
-        _tmp = "./_cgn_anomaly_tmp"
         n_epochs = 15
         t_start = time.time()
         losses_all, best_model, best_epoch = model.fit(
@@ -243,11 +243,11 @@ class TestFit(unittest.TestCase):
             max_train_time = max_train_time
         )
         self.assertTrue(time.time() - t_start < t_fit)
+        shutil.rmtree(_tmp)
 
     def test_fit_bw(self):
         model = CGNAnomaly(batch_size=32, img_channels=1)
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
-        _tmp = "./_cgn_anomaly_tmp"
         losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=1, 
@@ -272,7 +272,6 @@ class TestFit(unittest.TestCase):
     def test_fit_bw_conv_disc(self):
         model = CGNAnomaly(batch_size=32, img_channels=1, disc_model="conv")
         X = X_raw[y_raw==0][:5000][:,:1,:,:]
-        _tmp = "./_cgn_anomaly_tmp"
         losses_all, best_model, best_epoch = model.fit(
             X, 
             n_epochs=1, 
@@ -313,3 +312,5 @@ class TestPredict(unittest.TestCase):
 
     def test_perc_score(self):
         self.compare_scores("perceptual")
+
+shutil.rmtree(_tmp)
