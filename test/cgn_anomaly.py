@@ -12,6 +12,7 @@ from sgad.cgn import Subset
 from sgad.cgn.models import CGNAnomaly
 
 X_raw, y_raw = load_cifar10()
+X_raw = (X_raw - 0.5)/0.5
 
 class TestConstructor(unittest.TestCase):
     def test_default(self):

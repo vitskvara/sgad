@@ -9,7 +9,7 @@ import time
 from sgad.sgvae import VAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
 
-X_raw, y_raw = load_wildlife_mnist()
+X_raw, y_raw = load_wildlife_mnist(denormalize=False)
 
 class TestConstructor(unittest.TestCase):
     def test_default(self):
@@ -46,10 +46,16 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.config.betas == [0.5, 0.999])
         
         # test random init
-        a = float(model.encoder[0].weight[0,0,0,0].to('cpu'))
+        get_w = lambda model : float(model.encoder[0].weight[0,0,0,0].to('cpu'))
+        a = get_w(model)
         model = VAE()
-        b = float(model.encoder[0].weight[0,0,0,0].to('cpu'))
+        b = get_w(model)
         self.assertTrue(a != b)
+        model = VAE(init_seed=3)
+        a = get_w(model)
+        model = VAE(init_seed=3)
+        b = get_w(model)
+        self.assertTrue(a == b)
 
     def test_shape(self):
         model = VAE(vae_type="shape")

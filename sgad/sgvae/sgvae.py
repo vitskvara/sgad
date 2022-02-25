@@ -53,7 +53,9 @@ class SGVAE(nn.Module):
         self.device = self.vae_shape.device
         self.config.lambda_mask = lambda_mask
         self.config.weight_mask = weight_mask
-        
+        self.z_dim = self.config.z_dim
+        self.config.pop('vae_type')
+
         # binary loss
         self.binary_loss = BinaryLoss(lambda_mask)
         
@@ -67,7 +69,7 @@ class SGVAE(nn.Module):
 
         # optimizer
         self.opts = Optimizers()
-        self.opts.set('cvae', self, lr=self.config.lr, betas=self.config.betas)        
+        self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
         
         # move to device
         self.move_to(device)
@@ -163,10 +165,10 @@ class SGVAE(nn.Module):
                 bin_l = self.binary_loss(mask)
                 
                 # do a step    
-                self.opts.zero_grad(['cvae'])
+                self.opts.zero_grad(['sgvae'])
                 l = elbo + self.config.weight_mask*bin_l
                 l.backward()
-                self.opts.step(['cvae'], False) 
+                self.opts.step(['sgvae'], False) 
                 
                 # collect losses
                 def get_val(t):
@@ -327,7 +329,7 @@ class SGVAE(nn.Module):
         zs = [p.sample().to(self.device) for _ in range(3)]
         return self.decode_image(zs, shuffle=shuffle)
 
-    def generate_mean(self, n):
+    def generate_mean(self, n, shuffle=False):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         zs = [p.sample().to(self.device) for _ in range(3)]
         return self.decode_image_mean(zs, shuffle=shuffle)
@@ -344,6 +346,12 @@ class SGVAE(nn.Module):
         self.vae_background.move_to(device)
         self.vae_foreground.move_to(device)
         self = self.to(device)
+
+    def num_params(self):
+        s = 0
+        for p in self.parameters():
+            s += np.array(p.data.to('cpu')).size
+        return s
 
     def save_weights(self, file):
         torch.save(self.state_dict(), file)
