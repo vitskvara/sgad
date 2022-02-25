@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from sgad.cgn.dataloader import Subset
 from sgad.utils import Optimizers
-from .vae import VAE
+from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.shared.losses import BinaryLoss
 
