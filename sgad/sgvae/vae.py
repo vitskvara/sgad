@@ -15,43 +15,11 @@ import os
 import time
 import random
 
-from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
-from sgad.cgn.models.cgn import get_norm_layer, init_net
+from sgad.cgn.models.cgn import Reshape
+from sgad.cgn.models.cgn import init_net
 from sgad.utils import save_cfg, Optimizers, compute_auc
 from sgad.cgn.dataloader import Subset
-
-class Mean(nn.Module):
-    def __init__(self, *args):
-        super(Mean, self).__init__()
-        self.shape = args
-
-    def forward(self, x):
-        return x.mean(self.shape) 
-
-def ConvBlock(in_channels, out_channels):
-    return [
-        nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.LeakyReLU(0.2, inplace=True),
-    ]
-
-def Encoder(z_dim, img_channels, h_channels, img_dim):
-    out_dim = img_dim // 8
-    lin_dim = h_channels*4*out_dim*out_dim
-    return nn.Sequential(
-                *ConvBlock(img_channels, h_channels),
-                *ConvBlock(h_channels, h_channels*2),
-                *ConvBlock(h_channels*2, h_channels*4),
-                Reshape(*(-1, lin_dim)),
-                nn.Linear(lin_dim, z_dim*2),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-def TextureDecoder(z_dim, img_channels, h_channels, init_sz):
-    return nn.Sequential(*texture_layers(z_dim, img_channels, h_channels, init_sz), nn.Tanh())
-
-def ShapeDecoder(z_dim, img_channels, h_channels, init_sz):
-    return nn.Sequential(*shape_layers(z_dim, img_channels, h_channels, init_sz))
+from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick, batched_score
 
 class VAE(nn.Module):
     def __init__(self, 
@@ -154,97 +122,7 @@ class VAE(nn.Module):
         self.config.lr = lr
         self.config.betas = betas   
         self.config.log_var_x_estimate = log_var_x_estimate
-        
-    def rp_trick(self, mu, std):
-        p = torch.distributions.Normal(mu, std)
-        return p.rsample()
-    
-    def std(self, log_var):
-        if self.std_approx == "exp":
-            return torch.exp(log_var/2)
-        else:
-            return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
-    
-    def encode(self, x):
-        """Return the mean and log_var vectors of encodings in z space."""
-        h = self.encoder(x)
-        return self.mu_net_z(h), self.log_var_net_z(h)
 
-    def encoded(self, x):
-        """Returns the sampled encoded vectors in z space."""
-        mu_z, log_var_z = self.encode(x)
-        std_z = self.std(log_var_z)
-        return self.rp_trick(mu_z, std_z)
-    
-    def decode(self, z):
-        """Returns the mean and log_var decodings in x space."""
-        h = self.decoder(z)
-        return self.mu_net_x(h), self.log_var_net_x(h)
-        
-    def decoded(self, z):
-        """Returns the sampled decodings in x space."""
-        mu_x, log_var_x = self.decode(z)
-        std_z = self.std(log_var_x)
-        return self.rp_trick(mu_x, std_z)
-
-    def reconstruct(self, x):
-        return self.decoded(self.encoded(x))
-
-    def reconstruct_mean(self, x):
-        mu_z, log_var_z = self.encode(x)
-        z = self.rp_trick(mu_z, self.std(log_var_z))
-        mu_x, log_var_x = self.decode(z)
-        return mu_x
-    
-    def forward(self, x):
-        return self.reconstruct(x)
-    
-    def kld(self, mu, log_var):
-        """here input mu_z, log_var_z"""
-        return (torch.exp(log_var) + mu.pow(2) - log_var - 1.0).sum(1)/2
-        
-    def logpx(self, x, mu, log_var):
-        """here input mu_x, log_var_x"""
-        p = torch.distributions.Normal(mu, self.std(log_var))
-        return p.log_prob(x).sum((1,2,3))
-        
-    def elbo(self, x):
-        # first propagate everything
-        mu_z, log_var_z = self.encode(x)
-        std_z = self.std(log_var_z)
-        z = self.rp_trick(mu_z, std_z)
-        
-        mu_x, log_var_x = self.decode(z)
-        std_x = self.std(log_var_x)
-        
-        # compute kld
-        kl = self.kld(mu_z, log_var_z)
-        
-        # compute logpx
-        lpx = self.logpx(x, mu_x, log_var_x)
-        
-        return kl - lpx
-
-    def move_to(self, device=None):
-        if device is None:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        else:
-            device = torch.device(device)
-        
-        # push to device and train
-        self.device = device
-        self.to(device)
-
-    def num_params(self):
-        s = 0
-        for p in self.parameters():
-            s += np.array(p.data.to('cpu')).size
-        return s
-
-    def save_weights(self, cgn_file, disc_file):
-        torch.save(self.cgn.state_dict(), cgn_file)
-        torch.save(self.discriminator.state_dict(), disc_file)
-    
     def fit(self, X, y=None,
             X_val=None, y_val=None,
             n_epochs=20, 
@@ -309,7 +187,7 @@ class VAE(nn.Module):
                 # encode data, compute kld
                 mu_z, log_var_z = self.encode(x)
                 std_z = self.std(log_var_z)
-                z = self.rp_trick(mu_z, std_z)
+                z = rp_trick(mu_z, std_z)
                 kld = torch.mean(self.kld(mu_z, log_var_z))
                 
                 # decode, compute logpx
@@ -384,17 +262,102 @@ class VAE(nn.Module):
             best_epoch = n_epochs
 
         return losses_all, best_model, best_epoch
+        
+    def std(self, log_var):
+        if self.std_approx == "exp":
+            return torch.exp(log_var/2)
+        else:
+            return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
+    
+    def encode(self, x):
+        """Return the mean and log_var vectors of encodings in z space."""
+        h = self.encoder(x)
+        return self.mu_net_z(h), self.log_var_net_z(h)
+
+    def encoded(self, x):
+        """Returns the sampled encoded vectors in z space."""
+        mu_z, log_var_z = self.encode(x)
+        std_z = self.std(log_var_z)
+        return rp_trick(mu_z, std_z)
+    
+    def decode(self, z):
+        """Returns the mean and log_var decodings in x space."""
+        h = self.decoder(z)
+        return self.mu_net_x(h), self.log_var_net_x(h)
+        
+    def decoded(self, z):
+        """Returns the sampled decodings in x space."""
+        mu_x, log_var_x = self.decode(z)
+        std_z = self.std(log_var_x)
+        return rp_trick(mu_x, std_z)
+
+    def reconstruct(self, x):
+        return self.decoded(self.encoded(x))
+
+    def reconstruct_mean(self, x):
+        mu_z, log_var_z = self.encode(x)
+        z = rp_trick(mu_z, self.std(log_var_z))
+        mu_x, log_var_x = self.decode(z)
+        return mu_x
+    
+    def forward(self, x):
+        return self.reconstruct(x)
+    
+    def kld(self, mu, log_var):
+        """here input mu_z, log_var_z"""
+        return (torch.exp(log_var) + mu.pow(2) - log_var - 1.0).sum(1)/2
+        
+    def logpx(self, x, mu, log_var):
+        """here input mu_x, log_var_x"""
+        p = torch.distributions.Normal(mu, self.std(log_var))
+        return p.log_prob(x).sum((1,2,3))
+        
+    def elbo(self, x):
+        # first propagate everything
+        mu_z, log_var_z = self.encode(x)
+        std_z = self.std(log_var_z)
+        z = rp_trick(mu_z, std_z)
+        
+        mu_x, log_var_x = self.decode(z)
+        std_x = self.std(log_var_x)
+        
+        # compute kld
+        kl = self.kld(mu_z, log_var_z)
+        
+        # compute logpx
+        lpx = self.logpx(x, mu_x, log_var_x)
+        
+        return kl - lpx
 
     def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         z = p.sample().to(self.device)
         mu_x, log_var_x = self.decode(z)
-        return self.rp_trick(mu_x, self.std(log_var_x))
+        return rp_trick(mu_x, self.std(log_var_x))
 
     def generate_mean(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         z = p.sample().to(self.device)
         return self.decode(z)[0]
+        
+    def move_to(self, device=None):
+        if device is None:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            device = torch.device(device)
+        
+        # push to device and train
+        self.device = device
+        self = self.to(device)
+
+    def num_params(self):
+        s = 0
+        for p in self.parameters():
+            s += np.array(p.data.to('cpu')).size
+        return s
+
+    def save_weights(self, file):
+        torch.save(self.state_dict(), file)
 
     def save_sample_images(self, x, sample_path, batches_done, n_cols=3):
         """Saves a grid of generated and reconstructed digits"""
@@ -416,25 +379,6 @@ class VAE(nn.Module):
         save(x_gen_mean.data, f"{sample_path}/1_{batches_done:d}_x_gen_mean.png", n_cols, sz=self.config.img_dim)
         save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
         save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
-        
-    def move_to(self, device=None):
-        if device is None:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        else:
-            device = torch.device(device)
-        
-        # push to device and train
-        self.device = device
-        self = self.to(device)
-
-    def num_params(self):
-        s = 0
-        for p in self.parameters():
-            s += np.array(p.data.to('cpu')).size
-        return s
-
-    def save_weights(self, file):
-        torch.save(self.state_dict(), file)
 
     def predict(self, X, *args, score_type="logpx", workers=12, **kwargs):
         if not score_type in ["logpx"]:
@@ -449,26 +393,14 @@ class VAE(nn.Module):
         
         # get the scores
         if score_type == "logpx":
-            return self.batched_score(self.logpx_score, loader, *args, **kwargs)
+            return batched_score(self.logpx_score, loader, self.device, *args, **kwargs)
         else:
             raise ValueError("unknown score type")
-
-    def batched_score(self, scoref, loader, *args, **kwargs):
-        scores = []
-        labels = []
-        for batch in loader:
-            x = batch['ims'].to(self.device)
-            score = scoref(x, *args, **kwargs)
-            scores.append(score)
-
-        return np.concatenate(scores)
 
     def logpx_score(self, x, n=1):
         lpxs = []
         for i in range(n):
-            mu_z, log_var_z = self.encode(x)
-            std_z = self.std(log_var_z)
-            z = self.rp_trick(mu_z, std_z)
+            z = self.encoded(x)
             mu_x, log_var_x = self.decode(z)
             std_x = self.std(log_var_x)
             lpx = self.logpx(x, mu_x, log_var_x)

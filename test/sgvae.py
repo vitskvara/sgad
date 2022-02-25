@@ -59,3 +59,6 @@ class TestConstructor(unittest.TestCase):
         model = SGVAE()
         b = float(model.encoder[0].weight[0,0,0,0].to('cpu'))
         self.assertTrue(a != b)
+
+
+# test saving weights
