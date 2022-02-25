@@ -78,6 +78,23 @@ class TestConstructor(unittest.TestCase):
         
         self.assertTrue(model.config.vae_type == "shape")
 
+class TestUtils(unittest.TestCase):
+    def test_cpu_copy(self):
+        model = VAE()
+        device = model.device
+        cpu_model = model.cpu_copy()
+        # make sure that the device does not change after the copy
+        self.assertTrue(device.type == next(model.cgn.parameters()).device.type)
+        if device.type != 'cuda':
+            self.assertTrue(device.type == next(cpu_model.cgn.parameters()).device.type)
+        p1 = next(iter(cpu_model.cgn.parameters())).data.to('cpu')[0]
+        p2 = next(iter(model.cgn.parameters())).data.to('cpu')[0]
+        self.assertTrue(p1 == p2)
+        p1 = next(iter(cpu_model.discriminator.parameters())).data.to('cpu')[0]
+        p2 = next(iter(model.discriminator.parameters())).data.to('cpu')[0]
+        self.assertTrue(p1 == p2)
+
+
 # test that all the parts are trained
 # test the different constructors
 # rewrite save_stuff

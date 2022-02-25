@@ -307,12 +307,12 @@ class SGVAE(nn.Module):
         return mask * foreground + (1 - mask) * background
 
     def forward(self, x, shuffle=False):
-        """Returns clamped mask and foreground and background."""                
+        """Returns clamped mask, background, foreground."""                
         return self.decode_image_components(self.encoded(x), shuffle=shuffle)
 
     def reconstruct(self, x, shuffle=False):
         """Returns sampled reconstruction of x."""
-        mask, foreground, background = self(x, shuffle=shuffle)        
+        mask, background, foreground = self(x, shuffle=shuffle)        
         mu_x = mask * foreground + (1 - mask) * background
         log_var_x = self.log_var_net_x(mu_x)
         std_x = self.std(log_var_x)
@@ -320,7 +320,7 @@ class SGVAE(nn.Module):
 
     def reconstruct_mean(self, x, shuffle=False):
         """Returns mean reconstruction of x."""
-        mask, foreground, background = self(x, shuffle=shuffle)        
+        mask, background, foreground = self(x, shuffle=shuffle)        
         return mask * foreground + (1 - mask) * background
 
     def generate(self, n, shuffle=False):
@@ -362,7 +362,7 @@ class SGVAE(nn.Module):
         x_gen_mean = [self.generate_mean(10).to('cpu') for _ in range(n_cols)]
         x_gen_mean = torch.concat(x_gen_mean, 0)
         _x = torch.tensor(x).to(self.device)
-        mask, foreground, background = self(_x)
+        mask, background, foreground = self(_x)
         x_reconstructed = self.reconstruct(_x)
         x_reconstructed = torch.concat((x_reconstructed, mask, foreground, background), 0)
         x_reconstructed = x_reconstructed.to('cpu')
