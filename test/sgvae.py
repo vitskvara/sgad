@@ -5,9 +5,11 @@ import os
 import torch 
 import shutil
 import time
+import copy
 
 from sgad.sgvae import SGVAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
+from sgad.sgvae.utils import all_equal_params, all_nonequal_params
 
 X_raw, y_raw = load_wildlife_mnist(denormalize=False)
 
@@ -68,15 +70,56 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(a == b)
 
 # test saving weights
-
+_tmp = "./_tmp_sgvae"
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
         nc = 0
         X = X_raw[y_raw == nc]
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], lambda_mask=0.3, weight_mask=240.0)
-        _tmp = "./_tmp_sgvae"
         losses_all, best_model, best_epoch = model.fit(X, 
             save_path=_tmp, 
             n_epochs=4)
         shutil.rmtree(_tmp)
 
+
+class TestParams(unittest.TestCase):
+    def test_params(self):
+        nc = 0
+        X = X_raw[y_raw == nc]
+        model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
+        _model = copy.deepcopy(model)
+        # are all the parts equal in terms of trainable params?
+        self.assertTrue(all_equal_params(model, _model))
+        self.assertTrue(not all_nonequal_params(model, _model))
+        self.assertTrue(all_equal_params(model.vae_shape, _model.vae_shape))
+        self.assertTrue(all_equal_params(model.vae_shape.mu_net_z, _model.vae_shape.mu_net_z))
+        self.assertTrue(all_equal_params(model.vae_shape.log_var_net_z, _model.vae_shape.log_var_net_z))
+        self.assertTrue(all_equal_params(model.vae_shape.mu_net_x, _model.vae_shape.mu_net_x))
+        # now change one param
+        model.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        self.assertTrue(not all_equal_params(model, _model))
+        self.assertTrue(not all_nonequal_params(model, _model))
+        # construct the model again and train it for one epoch
+        model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
+        _model = copy.deepcopy(model)
+        model.fit(X,
+            n_epochs=1, 
+            save_iter=1000, 
+            verb=True, 
+            save_results=False
+           )
+        # check the equality of params
+        self.assertTrue(not all_equal_params(model, _model))
+        self.assertTrue(not all_nonequal_params(model, _model)) # the global log_var_x are not trained
+        model.vae_shape.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        self.assertTrue(not all_nonequal_params(model, _model))
+        model.vae_background.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        self.assertTrue(not all_nonequal_params(model, _model))
+        model.vae_foreground.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        # now the rest of the params must have changed
+        self.assertTrue(all_nonequal_params(model, _model))
+        self.assertTrue(all_nonequal_params(model.vae_shape.encoder, _model.vae_shape.encoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.decoder, _model.vae_shape.decoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, _model.vae_shape.mu_net_z))
+        self.assertTrue(all_nonequal_params(model.vae_shape.log_var_net_z, _model.vae_shape.log_var_net_z))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_x, _model.vae_shape.mu_net_x))

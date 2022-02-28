@@ -40,7 +40,7 @@ class SGVAE(nn.Module):
         betas=[0.5, 0.999],
         device=None
     """
-    def __init__(self, lambda_mask=0.3, weight_mask=100.0, std_approx="exp", device=None, **kwargs):
+    def __init__(self, lambda_mask=0.3, weight_mask=100.0, std_approx="exp", device=None, shuffle=True, **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
                 
@@ -62,7 +62,9 @@ class SGVAE(nn.Module):
         
         # shuffler
         img_dim = self.config.img_dim
+        self.shuffle = shuffle
         self.shuffler = nn.Sequential(Patch2Image(img_dim, 2), RandomCrop(img_dim))
+        self.config.shuffle = shuffle
 
         # x log var
         self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
@@ -149,8 +151,9 @@ class SGVAE(nn.Module):
                 foreground = self._decode(self.vae_foreground, z_f)
                 
                 # shuffle
-                background = self.shuffler(background)
-                foreground = self.shuffler(foreground)
+                if self.shuffle:
+                    background = self.shuffler(background)
+                    foreground = self.shuffler(foreground)
                 
                 # merge them together
                 x_hat = mask * foreground + (1 - mask) * background

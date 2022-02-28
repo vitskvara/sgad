@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch import nn
 from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
 from sgad.cgn.models.cgn import get_norm_layer
@@ -55,3 +56,22 @@ def batched_score(scoref, loader, device, *args, **kwargs):
         scores.append(score)
 
     return np.concatenate(scores)
+
+def all_equal_params(m1, m2):
+    """Returns True if all parameters of the two models are the same (does not check for device)."""
+    ps = m1.parameters()
+    _ps = m2.parameters()
+    for (p, _p) in zip(ps, _ps):
+        if np.all(p.detach().to('cpu').numpy() != _p.detach().to('cpu').numpy()):
+            return False
+    return True
+
+def all_nonequal_params(m1, m2):
+    """Returns True if all parameters of the two models are different (does not check for device)."""
+    ps = m1.parameters()
+    _ps = m2.parameters()
+    for (p, _p) in zip(ps, _ps):
+        if np.any(p.detach().to('cpu').numpy() == _p.detach().to('cpu').numpy()):
+            return False
+    return True
+

@@ -5,9 +5,11 @@ import os
 import torch 
 import shutil
 import time
+import copy
 
 from sgad.sgvae import VAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
+from sgad.sgvae.utils import all_equal_params, all_nonequal_params
 
 X_raw, y_raw = load_wildlife_mnist(denormalize=False)
 
@@ -84,27 +86,21 @@ class TestUtils(unittest.TestCase):
         device = model.device
         cpu_model = model.cpu_copy()
         # make sure that the device does not change after the copy
-        self.assertTrue(device.type == next(model.cgn.parameters()).device.type)
+        self.assertTrue(device.type == next(model.parameters()).device.type)
         if device.type != 'cuda':
-            self.assertTrue(device.type == next(cpu_model.cgn.parameters()).device.type)
-        p1 = next(iter(cpu_model.cgn.parameters())).data.to('cpu')[0]
-        p2 = next(iter(model.cgn.parameters())).data.to('cpu')[0]
-        self.assertTrue(p1 == p2)
-        p1 = next(iter(cpu_model.discriminator.parameters())).data.to('cpu')[0]
-        p2 = next(iter(model.discriminator.parameters())).data.to('cpu')[0]
-        self.assertTrue(p1 == p2)
-
+            self.assertTrue(device.type == next(cpu_model.parameters()).device.type)
+        self.assertTrue(all_equal_params(model, cpu_model))
 
 # test that all the parts are trained
 # test the different constructors
 # rewrite save_stuff
 
+_tmp = "./_tmp_vae"
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
         nc = 0
         X = X_raw[y_raw == nc]
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1])
-        _tmp = "./_tmp_vae"
         model.fit(X,
             n_epochs=20, 
             save_iter=1000, 
@@ -118,7 +114,6 @@ class TestFit(unittest.TestCase):
         nc = 0
         X = X_raw[y_raw == nc][:,0:1,:,:]
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
-        _tmp = "./_tmp_vae"
         model.fit(X,
             n_epochs=20, 
             save_iter=1000, 
@@ -127,3 +122,37 @@ class TestFit(unittest.TestCase):
             save_path=_tmp
            )
         shutil.rmtree(_tmp)
+
+class TestParams(unittest.TestCase):
+    def test_params(self):
+        nc = 0
+        X = X_raw[y_raw == nc]
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
+        _model = copy.deepcopy(model)
+        # are all the parts equal in terms of trainable params?
+        self.assertTrue(all_equal_params(model, _model))
+        self.assertTrue(not all_nonequal_params(model, _model))
+        self.assertTrue(all_equal_params(model.mu_net_z, _model.mu_net_z))
+        self.assertTrue(all_equal_params(model.log_var_net_z, _model.log_var_net_z))
+        self.assertTrue(all_equal_params(model.mu_net_x, _model.mu_net_x))
+        # now change one param
+        model.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        self.assertTrue(not all_equal_params(model, _model))
+        self.assertTrue(not all_nonequal_params(model, _model))
+        # construct the model again and train it for one epoch
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
+        _model = copy.deepcopy(model)
+        model.fit(X,
+            n_epochs=1, 
+            save_iter=1000, 
+            verb=True, 
+            save_results=False
+           )
+        # check the equality of params
+        self.assertTrue(not all_equal_params(model, _model))
+        self.assertTrue(all_nonequal_params(model, _model))
+        self.assertTrue(all_nonequal_params(model.encoder, _model.encoder))
+        self.assertTrue(all_nonequal_params(model.decoder, _model.decoder))
+        self.assertTrue(all_nonequal_params(model.mu_net_z, _model.mu_net_z))
+        self.assertTrue(all_nonequal_params(model.log_var_net_z, _model.log_var_net_z))
+        self.assertTrue(all_nonequal_params(model.mu_net_x, _model.mu_net_x))
