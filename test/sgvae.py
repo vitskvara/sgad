@@ -69,6 +69,17 @@ class TestConstructor(unittest.TestCase):
         b = get_w(model)
         self.assertTrue(a == b)
 
+class TestUtils(unittest.TestCase):
+    def test_cpu_copy(self):
+        model = SGVAE(h_channels=2)
+        _model = model.cpu_copy()
+        self.assertTrue(all_equal_params(model, _model))
+        self.assertTrue(model.config == _model.config)
+        x = torch.ones(1,3,32,32)
+        self.assertTrue((model.encode(x)[0][0] == _model.encode(x)[0][0]).all().item())
+        z = torch.ones(1,32)
+        self.assertTrue((model.decode(z)[3][0] == _model.decode(z)[3][0]).all().item())
+
 # test saving weights
 _tmp = "./_tmp_sgvae"
 class TestFit(unittest.TestCase):
@@ -80,7 +91,6 @@ class TestFit(unittest.TestCase):
             save_path=_tmp, 
             n_epochs=4)
         shutil.rmtree(_tmp)
-
 
 class TestParams(unittest.TestCase):
     def test_params(self):

@@ -421,12 +421,12 @@ class SGVAE(nn.Module):
         return np.mean(lpxs, 0)
 
 # TODO
-def cpu_copy(self):
-    device = self.device # save the original device
-    self.move_to('cpu') # move to cpu
-    cp = copy.deepcopy(self)
-    self.move_to(device)
-    return cp        
+    def cpu_copy(self):
+        device = self.device # save the original device
+        self.move_to('cpu') # move to cpu
+        cp = copy.deepcopy(self)
+        self.move_to(device)
+        return cp        
 
 """
     def cpu_copy(self):
