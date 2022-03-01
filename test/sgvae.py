@@ -79,7 +79,7 @@ class TestUtils(unittest.TestCase):
         x = torch.ones(1,3,32,32)
         self.assertTrue((model.encode(x)[0][0] == _model.encode(x)[0][0]).all().item())
         z = torch.ones(1,32)
-        self.assertTrue((model.decode(z)[3][0] == _model.decode(z)[3][0]).all().item())
+        self.assertTrue((model.decode(z)[2][0] == _model.decode(z)[2][0]).all().item())
 
 # test saving weights
 _tmp = "./_tmp_sgvae"
