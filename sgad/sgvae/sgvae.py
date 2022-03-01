@@ -219,8 +219,7 @@ class SGVAE(nn.Module):
                 auc_val = compute_auc(y_val, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:
-                    #best_model = self.cpu_copy()
-                    best_model = None
+                    best_model = self.cpu_copy()
                     best_epoch = epoch+1
                     best_auc_val = auc_val
                 self.train()
@@ -230,8 +229,12 @@ class SGVAE(nn.Module):
                 print("Given runtime exceeded, ending training prematurely.")
                 break
 
-        best_model = None
-        best_epoch = None
+        # return self as best model
+        if X_val is None:
+            best_model = self.cpu_copy()
+            best_model.eval()
+            best_epoch = n_epochs
+
         return losses_all, best_model, best_epoch
 
     def std(self, log_var):
@@ -415,6 +418,13 @@ class SGVAE(nn.Module):
         return np.mean(lpxs, 0)
 
 # TODO
+def cpu_copy(self):
+    device = self.device # save the original device
+    self.move_to('cpu') # move to cpu
+    cp = copy.deepcopy(self)
+    self.move_to(device)
+    return cp        
+
 """
     def cpu_copy(self):
         device = self.device # save the original device

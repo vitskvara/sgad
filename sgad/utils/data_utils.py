@@ -10,7 +10,7 @@ def check_create_datadir():
     if not os.path.exists(sgaddf):
         data_path = os.path.join(os.path.expanduser("~"), "sgad_data")
         alt_path = input(f"Enter datapath for experiment storage (default {data_path}): ")
-        data_path = datapath if alt_path == '' else alt_path
+        data_path = data_path if alt_path == '' else alt_path
         with open(sgaddf, "w") as f:
             f.write(data_path)
         os.makedirs(data_path, exist_ok=True)

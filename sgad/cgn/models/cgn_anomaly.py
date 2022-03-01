@@ -386,4 +386,3 @@ class CGNAnomaly(nn.Module):
         cp.cgn = cgn
         cp.discriminator = disc
         return cp
-                        
