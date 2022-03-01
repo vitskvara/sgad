@@ -73,6 +73,7 @@ class TestUtils(unittest.TestCase):
     def test_cpu_copy(self):
         model = SGVAE(h_channels=2)
         _model = model.cpu_copy()
+        model.move_to('cpu')
         self.assertTrue(all_equal_params(model, _model))
         self.assertTrue(model.config == _model.config)
         x = torch.ones(1,3,32,32)
