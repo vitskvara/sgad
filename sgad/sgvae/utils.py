@@ -75,3 +75,5 @@ def all_nonequal_params(m1, m2):
             return False
     return True
 
+def get_float(t):
+    return float(t.data.cpu().numpy())

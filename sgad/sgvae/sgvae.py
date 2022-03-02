@@ -17,7 +17,7 @@ from sgad.cgn.dataloader import Subset
 from sgad.utils import Optimizers
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
-from sgad.sgvae.utils import rp_trick, batched_score, logpx
+from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float
 from sgad.shared.losses import BinaryLoss
 
 # Shape-Guided Variational AutoEncoder
@@ -31,6 +31,8 @@ class SGVAE(nn.Module):
         img_channels=3,
         lambda_mask=0.3, 
         weight_mask=100.0,
+        train_step="independent", 
+        shuffle=True,
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -40,7 +42,8 @@ class SGVAE(nn.Module):
         betas=[0.5, 0.999],
         device=None
     """
-    def __init__(self, lambda_mask=0.3, weight_mask=100.0, std_approx="exp", device=None, shuffle=True, **kwargs):
+    def __init__(self, lambda_mask=0.3, weight_mask=100.0, std_approx="exp", 
+        device=None, latent_structure="independent", shuffle=True, **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
                 
@@ -66,6 +69,10 @@ class SGVAE(nn.Module):
         self.shuffler = nn.Sequential(Patch2Image(img_dim, 2), RandomCrop(img_dim))
         self.config.shuffle = shuffle
 
+        # training type
+        self.latent_structure = latent_structure
+        self.config.latent_structure = latent_structure
+
         # x log var
         self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
         self.log_var_net_x = lambda x: self.log_var_x_global
@@ -76,7 +83,7 @@ class SGVAE(nn.Module):
         
         # move to device
         self.move_to(device)
-        
+
     def fit(self, X, y=None,
             X_val=None, y_val=None,
             n_epochs=20, 
@@ -105,100 +112,31 @@ class SGVAE(nn.Module):
             raise ValueError("X_val given without y_val - please provide it as well.")
         auc_val = best_auc_val = -1.0
         
-        # loss values
-        losses_all = {'iter': [], 'epoch': [], 'kld': [], 'logpx': [], 'elbo': [], 'auc_val': [],
+        # loss values, n_epochs, save_iter, workers
+        losses_all = {'iter': [], 'epoch': [], 'loss': [], 'kld': [], 'logpx': [], 'elbo': [], 'auc_val': [],
                      'kld_shape': [], 'kld_background': [], 'kld_foreground': [], 'binary': []}
 
         # setup save paths
-        if save_results and save_path == None:
-            raise ValueError('If you want to save results, provide the save_path argument.')   
-        if save_results:
-            model_path = Path(save_path)
-            weights_path = model_path / 'weights'
-            sample_path = model_path / 'samples'
-            weights_path.mkdir(parents=True, exist_ok=True)
-            sample_path.mkdir(parents=True, exist_ok=True)
-
-            # dump config
-            cfg = copy.deepcopy(self.config)
-            cfg.n_epochs = n_epochs
-            cfg.save_iter = save_iter
-            cfg.save_path = save_path
-            cfg.workers = workers
-            save_cfg(cfg, model_path / "cfg.yaml")
-
-            # samples for reconstruction
-            x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
+        x_sample, model_path, sample_path, weights_path = self.setup_paths(
+            X, save_results, save_path, n_epochs, save_iter, workers)
 
         # tracking
         pbar = tqdm(range(n_epochs))
         niter = 0
         start_time = time.time()
         for epoch in pbar:
-            for i, data in enumerate(tr_loader):
-                # Data to device
-                x = data['ims'].to(self.device)
-                
-                # now get the klds and zs
-                z_s, kld_s = self._encode(self.vae_shape, x)
-                z_b, kld_b = self._encode(self.vae_background, x)
-                z_f, kld_f = self._encode(self.vae_foreground, x)
+            for i, batch in enumerate(tr_loader):
+                if self.latent_structure == "independent":
+                    loss_values = self.train_step_independent(batch)
+                else:
+                    raise ValueError(f'Required latent structure {self.latent_structure} unknown.')
 
-                # now get the decoded outputs
-                mask = self._decode(self.vae_shape, z_s)
-                mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
-                background = self._decode(self.vae_background, z_b)
-                foreground = self._decode(self.vae_foreground, z_f)
-                
-                # shuffle
-                if self.shuffle:
-                    background = self.shuffler(background)
-                    foreground = self.shuffler(foreground)
-                
-                # merge them together
-                x_hat = mask * foreground + (1 - mask) * background
-                mu_x = x_hat
-                log_var_x = self.log_var_net_x(x_hat)
-                std_x = self.std(log_var_x)
-                lpx = torch.mean(logpx(x, mu_x, std_x))
-                
-                # get elbo
-                kld = kld_s + kld_b + kld_f
-                elbo = torch.mean(kld - lpx)
-                
-                # get binary loss
-                bin_l = self.binary_loss(mask)
-                
-                # do a step    
-                self.opts.zero_grad(['sgvae'])
-                l = elbo + self.config.weight_mask*bin_l
-                l.backward()
-                self.opts.step(['sgvae'], False) 
-                
                 # collect losses
-                def get_val(t):
-                    return float(t.data.cpu().numpy())
-                niter += 1
-                losses_all['iter'].append(niter)
-                losses_all['epoch'].append(epoch)
-                losses_all['elbo'].append(get_val(elbo))
-                losses_all['kld'].append(get_val(kld))
-                losses_all['logpx'].append(get_val(lpx))
-                losses_all['auc_val'].append(auc_val)
-                losses_all['kld_shape'].append(get_val(kld_s))
-                losses_all['kld_background'].append(get_val(kld_b))
-                losses_all['kld_foreground'].append(get_val(kld_f))
-                losses_all['binary'].append(get_val(bin_l))
+                self.log_losses(losses_all, niter, epoch, auc_val, *loss_values)
 
                 # output
                 if verb:
-                    msg = f"[Batch {i}/{len(tr_loader)}]"
-                    msg += ''.join(f"[elbo: {get_val(elbo):.3f}]")
-                    msg += ''.join(f"[kld: {get_val(kld):.3f}]")
-                    msg += ''.join(f"[logpx: {get_val(lpx):.3f}]")
-                    msg += ''.join(f"[binary: {get_val(bin_l):.3f}]")
-                    msg += ''.join(f"[auc val: {auc_val:.3f}]")
-                    pbar.set_description(msg)
+                    self.print_progress(pbar, i, len(tr_loader), auc_val, *loss_values)
 
                 # Saving
                 batches_done = epoch * len(tr_loader) + i
@@ -215,7 +153,7 @@ class SGVAE(nn.Module):
                 if run_time > max_train_time:
                     break
 
-            # after every epoch, print the val auc
+            # after every epoch, compute the val auc
             if X_val is not None:
                 self.eval()
                 scores_val = self.predict(X_val, score_type='logpx', num_workers=workers, n=10)
@@ -239,6 +177,100 @@ class SGVAE(nn.Module):
             best_epoch = n_epochs
 
         return losses_all, best_model, best_epoch
+
+    def setup_paths(self, X, save_results, save_path, n_epochs, save_iter, workers):
+        # defaults
+        x_sample = None
+        model_path = sample_path = weights_path = None
+
+        if save_results and save_path == None:
+            raise ValueError('If you want to save results, provide the save_path argument.')
+        
+        if save_results:
+            model_path = Path(save_path)
+            weights_path = model_path / 'weights'
+            sample_path = model_path / 'samples'
+            weights_path.mkdir(parents=True, exist_ok=True)
+            sample_path.mkdir(parents=True, exist_ok=True)
+
+            # dump config
+            cfg = copy.deepcopy(self.config)
+            cfg.n_epochs = n_epochs
+            cfg.save_iter = save_iter
+            cfg.save_path = save_path
+            cfg.workers = workers
+            save_cfg(cfg, model_path / "cfg.yaml")
+
+            # samples for reconstruction
+            x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
+
+        return x_sample, model_path, sample_path, weights_path
+
+    def train_step_independent(self, batch):
+        # Data to device
+        x = batch['ims'].to(self.device)
+        
+        # now get the klds and zs
+        z_s, kld_s = self._encode(self.vae_shape, x)
+        z_b, kld_b = self._encode(self.vae_background, x)
+        z_f, kld_f = self._encode(self.vae_foreground, x)
+
+        # now get the decoded outputs
+        mask = self._decode(self.vae_shape, z_s)
+        mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+        background = self._decode(self.vae_background, z_b)
+        foreground = self._decode(self.vae_foreground, z_f)
+        
+        # shuffle
+        if self.shuffle:
+            background = self.shuffler(background)
+            foreground = self.shuffler(foreground)
+        
+        # merge them together
+        x_hat = mask * foreground + (1 - mask) * background
+        mu_x = x_hat
+        log_var_x = self.log_var_net_x(x_hat)
+        std_x = self.std(log_var_x)
+        lpx = torch.mean(logpx(x, mu_x, std_x))
+        
+        # get elbo
+        kld = kld_s + kld_b + kld_f
+        elbo = torch.mean(kld - lpx)
+        
+        # get binary loss
+        bin_l = self.binary_loss(mask)
+        
+        # do a step    
+        self.opts.zero_grad(['sgvae'])
+        l = elbo + self.config.weight_mask*bin_l
+        l.backward()
+        self.opts.step(['sgvae'], False)
+
+        return l, elbo, kld, lpx, bin_l, kld_s, kld_b, kld_f
+        
+    def log_losses(self, losses_all, niter, epoch, auc_val, l, elbo, kld, lpx, bin_l, kld_s, kld_b, kld_f):
+        niter += 1
+        losses_all['iter'].append(niter)
+        losses_all['epoch'].append(epoch)
+        losses_all['loss'].append(get_float(l))
+        losses_all['elbo'].append(get_float(elbo))
+        losses_all['kld'].append(get_float(kld))
+        losses_all['logpx'].append(get_float(lpx))
+        losses_all['auc_val'].append(auc_val)
+        losses_all['kld_shape'].append(get_float(kld_s))
+        losses_all['kld_background'].append(get_float(kld_b))
+        losses_all['kld_foreground'].append(get_float(kld_f))
+        losses_all['binary'].append(get_float(bin_l))
+
+    def print_progress(self, pbar, i, nsteps, auc_val, l, elbo, kld, lpx, bin_l, *args):
+        msg = f"[Batch {i}/{nsteps}]"
+        msg += ''.join(f"[loss: {get_float(l):.3f}]")
+        msg += ''.join(f"[elbo: {get_float(elbo):.3f}]")
+        msg += ''.join(f"[kld: {get_float(kld):.3f}]")
+        msg += ''.join(f"[logpx: {get_float(lpx):.3f}]")
+        msg += ''.join(f"[binary: {get_float(bin_l):.3f}]")
+        msg += ''.join(f"[auc val: {auc_val:.3f}]")
+        pbar.set_description(msg)
 
     def std(self, log_var):
         if self.config.std_approx == "exp":
@@ -420,52 +452,9 @@ class SGVAE(nn.Module):
 
         return np.mean(lpxs, 0)
 
-# TODO
     def cpu_copy(self):
         device = self.device # save the original device
         self.move_to('cpu') # move to cpu
         cp = copy.deepcopy(self)
         self.move_to(device)
         return cp        
-
-"""
-    def cpu_copy(self):
-        device = self.device # save the original device
-        self.move_to('cpu') # move to cpu
-        encoder = copy.deepcopy(self.encoder)
-        decoder = copy.deepcopy(self.decoder)
-        mu_net_z = copy.deepcopy(self.mu_net_z)
-        log_var_net_z = copy.deepcopy(self.log_var_net_z)
-        mu_net_x = copy.deepcopy(self.mu_net_x)
-        log_var_net_x = copy.deepcopy(self.log_var_net_x)
-        log_var_x_global = copy.deepcopy(self.log_var_x_global)
-        
-        self.move_to(device) # move it back
-        cp = VAE( # now create a cpu copy
-                z_dim=self.config.z_dim,
-                h_channels=self.config.h_channels,
-                img_dim=self.config.img_dim,
-                img_channels=self.config.img_channels,
-                batch_size=self.config.batch_size,
-                init_type=self.config.init_type, 
-                init_gain=self.config.init_gain,
-                init_seed=self.config.init_seed,
-                vae_type=self.config.vae_type, 
-                std_approx=self.config.std_approx,
-                lr=self.config.lr,
-                betas=self.config.betas,
-                device='cpu',
-                log_var_x_estimate=self.config.log_var_x_estimate
-                )
-
-        # now replace the parts
-        cp.encoder = encoder
-        cp.decoder = decoder
-        cp.mu_net_z = mu_net_z
-        cp.log_var_net_z = log_var_net_z
-        cp.mu_net_x = mu_net_x
-        cp.log_var_net_x = log_var_net_x
-        cp.log_var_x_global = log_var_x_global
-        
-        return cp
-"""
