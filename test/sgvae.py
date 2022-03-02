@@ -78,8 +78,8 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(model.config == _model.config)
         x = torch.ones(1,3,32,32)
         self.assertTrue((model.encode(x)[0][0] == _model.encode(x)[0][0]).all().item())
-        z = torch.ones(1,32)
-        self.assertTrue((model.decode(z)[2][0] == _model.decode(z)[2][0]).all().item())
+        zs = [torch.ones(1,32) for _ in range(3)]
+        self.assertTrue((model.decode(zs)[2][0] == _model.decode(zs)[2][0]).all().item())
 
 # test saving weights
 _tmp = "./_tmp_sgvae"
@@ -114,7 +114,7 @@ class TestParams(unittest.TestCase):
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
         _model = copy.deepcopy(model)
         model.fit(X,
-            n_epochs=1, 
+            n_epochs=2, 
             save_iter=1000, 
             verb=True, 
             save_results=False
