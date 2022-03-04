@@ -34,7 +34,7 @@ class SGVAE(nn.Module):
         weight_binary=1.0,
         weight_mask=1.0,
         tau_mask=0.1,       
-        train_step="independent", 
+        latent_structure="independent",
         shuffle=False, 
         fixed_mask_epochs=0,
         detach_mask = [False, False],
@@ -581,7 +581,7 @@ class SGVAE(nn.Module):
             lpx = logpx(x, mu_x, std_x)
             lpxs.append(lpx.data.to('cpu').numpy())
 
-        return np.mean(lpxs, 0)
+        return -np.mean(lpxs, 0)
 
     def cpu_copy(self):
 #        device = self.device # save the original device

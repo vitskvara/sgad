@@ -401,7 +401,7 @@ class VAE(nn.Module):
             lpx = logpx(x, mu_x, std_x)
             lpxs.append(lpx.data.to('cpu').numpy())
 
-        return np.mean(lpxs, 0)
+        return -np.mean(lpxs, 0)
 
     def cpu_copy(self):
         device = self.device # save the original device
