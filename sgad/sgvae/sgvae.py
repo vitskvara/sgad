@@ -18,7 +18,8 @@ from sgad.utils import Optimizers
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float
-from sgad.shared.losses import BinaryLoss
+from sgad.shared.losses import BinaryLoss, MaskLoss
+from sgad.shared.losses import PerceptualLoss, PercLossText
 
 # Shape-Guided Variational AutoEncoder
 class SGVAE(nn.Module):
@@ -29,10 +30,14 @@ class SGVAE(nn.Module):
         h_channels=32, 
         img_dim=32, 
         img_channels=3,
-        lambda_mask=0.3, 
-        weight_mask=100.0,
+        weights_texture = [0.01, 0.05, 0.0, 0.01], 
+        weight_binary=1.0,
+        weight_mask=1.0,
+        tau_mask=0.1,       
         train_step="independent", 
-        shuffle=True,
+        shuffle=False, 
+        fixed_mask_epochs=0,
+        detach_mask = [False, False],
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -42,8 +47,10 @@ class SGVAE(nn.Module):
         betas=[0.5, 0.999],
         device=None
     """
-    def __init__(self, lambda_mask=0.3, weight_mask=100.0, std_approx="exp", 
-        device=None, latent_structure="independent", shuffle=True, **kwargs):
+    def __init__(self, weights_texture = [0.01, 0.05, 0.0, 0.01], weight_binary=1.0,
+        weight_mask=1.0, tau_mask=0.1, std_approx="exp", 
+        device=None, latent_structure="independent", shuffle=False, fixed_mask_epochs=0,
+        detach_mask = [False, False], **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
                 
@@ -55,14 +62,19 @@ class SGVAE(nn.Module):
         # config
         self.config = copy.deepcopy(self.vae_background.config)
         self.device = self.vae_shape.device
-        self.config.lambda_mask = lambda_mask
+        self.config.weight_binary = weight_binary
         self.config.weight_mask = weight_mask
+        self.config.tau_mask = tau_mask
         self.z_dim = self.config.z_dim
         self.config.pop('vae_type')
 
-        # binary loss
-        self.binary_loss = BinaryLoss(lambda_mask)
-        
+        # mask and texture loss
+        self.binary_loss = BinaryLoss(weight_binary)
+        self.mask_loss = MaskLoss(weight_mask, interval=[tau_mask, 1-tau_mask])
+        self.config.weights_texture = weights_texture
+        self.texture_loss = PercLossText(weights_texture, patch_sz=[8, 8], im_sz=self.config.img_dim, 
+            sample_sz=100, n_up=6)
+
         # shuffler
         img_dim = self.config.img_dim
         self.shuffle = shuffle
@@ -70,8 +82,15 @@ class SGVAE(nn.Module):
         self.config.shuffle = shuffle
 
         # training type
+        possible_structures = ["independent", "mask_dependent"]
+        if not latent_structure in possible_structures:
+            raise ValueError(f'Required latent structure {latent_structure} unknown. Choose one of {possible_structures}.')
         self.latent_structure = latent_structure
         self.config.latent_structure = latent_structure
+        self.detach_mask = detach_mask
+        self.config.detach_mask = detach_mask
+        self.fixed_mask_epochs = fixed_mask_epochs
+        self.config.fixed_mask_epochs = fixed_mask_epochs
 
         # x log var
         self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
@@ -89,7 +108,7 @@ class SGVAE(nn.Module):
             n_epochs=20, 
             save_iter=1000, 
             verb=True, 
-            save_results=True, 
+            save_weights=False,
             save_path=None, 
             workers=12,
             max_train_time=np.inf # in seconds           
@@ -114,23 +133,28 @@ class SGVAE(nn.Module):
         
         # loss values, n_epochs, save_iter, workers
         losses_all = {'iter': [], 'epoch': [], 'loss': [], 'kld': [], 'logpx': [], 'elbo': [], 'auc_val': [],
-                     'kld_shape': [], 'kld_background': [], 'kld_foreground': [], 'binary': []}
+                     'kld_shape': [], 'kld_background': [], 'kld_foreground': [], 'binary': [],
+                     'mask': [], 'texture': []}
 
         # setup save paths
-        x_sample, model_path, sample_path, weights_path = self.setup_paths(
-            X, save_results, save_path, n_epochs, save_iter, workers)
+        if save_path is not None:
+            save_results = True
+            x_sample, model_path, sample_path, weights_path = self.setup_paths(
+                X, save_path, save_weights, n_epochs, save_iter, workers)
+        else:
+            save_results = False
 
         # tracking
         pbar = tqdm(range(n_epochs))
         niter = 0
         start_time = time.time()
-        for epoch in pbar:
+        for iepoch, epoch in enumerate(pbar):
             for i, batch in enumerate(tr_loader):
                 if self.latent_structure == "independent":
-                    loss_values = self.train_step_independent(batch)
-                else:
-                    raise ValueError(f'Required latent structure {self.latent_structure} unknown.')
-
+                    loss_values = self.train_step_independent(batch, iepoch)
+                elif self.latent_structure == "mask_dependent":
+                    loss_values = self.train_step_mask_dependent(batch, iepoch)
+                
                 # collect losses
                 self.log_losses(losses_all, niter, epoch, auc_val, *loss_values)
 
@@ -144,9 +168,10 @@ class SGVAE(nn.Module):
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
                         self.save_sample_images(x_sample, sample_path, batches_done, n_cols=3)
-                        self.save_weights(f"{weights_path}/sgvae_{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
+                        if save_weights:
+                           self.save_weights(f"{weights_path}/sgvae_{batches_done:d}.pth")
 
                 # exit if running for too long
                 run_time = time.time() - start_time
@@ -178,35 +203,7 @@ class SGVAE(nn.Module):
 
         return losses_all, best_model, best_epoch
 
-    def setup_paths(self, X, save_results, save_path, n_epochs, save_iter, workers):
-        # defaults
-        x_sample = None
-        model_path = sample_path = weights_path = None
-
-        if save_results and save_path == None:
-            raise ValueError('If you want to save results, provide the save_path argument.')
-        
-        if save_results:
-            model_path = Path(save_path)
-            weights_path = model_path / 'weights'
-            sample_path = model_path / 'samples'
-            weights_path.mkdir(parents=True, exist_ok=True)
-            sample_path.mkdir(parents=True, exist_ok=True)
-
-            # dump config
-            cfg = copy.deepcopy(self.config)
-            cfg.n_epochs = n_epochs
-            cfg.save_iter = save_iter
-            cfg.save_path = save_path
-            cfg.workers = workers
-            save_cfg(cfg, model_path / "cfg.yaml")
-
-            # samples for reconstruction
-            x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
-
-        return x_sample, model_path, sample_path, weights_path
-
-    def train_step_independent(self, batch):
+    def train_step_independent(self, batch, iepoch):
         # Data to device
         x = batch['ims'].to(self.device)
         
@@ -216,8 +213,12 @@ class SGVAE(nn.Module):
         z_f, kld_f = self._encode(self.vae_foreground, x)
 
         # now get the decoded outputs
-        mask = self._decode(self.vae_shape, z_s)
-        mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+        if iepoch >= self.fixed_mask_epochs:    
+            mask = self._decode(self.vae_shape, z_s)
+            mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+        else:
+            mask = self.fixed_mask(x,r=0.2)
+    
         background = self._decode(self.vae_background, z_b)
         foreground = self._decode(self.vae_foreground, z_f)
         
@@ -227,7 +228,7 @@ class SGVAE(nn.Module):
             foreground = self.shuffler(foreground)
         
         # merge them together
-        x_hat = mask * foreground + (1 - mask) * background
+        x_hat = self.compose_image(mask, background, foreground)
         mu_x = x_hat
         log_var_x = self.log_var_net_x(x_hat)
         std_x = self.std(log_var_x)
@@ -239,16 +240,105 @@ class SGVAE(nn.Module):
         
         # get binary loss
         bin_l = self.binary_loss(mask)
-        
+        mask_l = self.mask_loss(mask).mean()
+
+        # get the texture loss
+        text_l = self.texture_loss(x, mask, foreground)
+
         # do a step    
         self.opts.zero_grad(['sgvae'])
-        l = elbo + self.config.weight_mask*bin_l
+        l = elbo + bin_l + mask_l + text_l
         l.backward()
         self.opts.step(['sgvae'], False)
 
-        return l, elbo, kld, lpx, bin_l, kld_s, kld_b, kld_f
+        return l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f
+
+    def train_step_mask_dependent(self, batch, iepoch):
+        # Data to device
+        x = batch['ims'].to(self.device)
         
-    def log_losses(self, losses_all, niter, epoch, auc_val, l, elbo, kld, lpx, bin_l, kld_s, kld_b, kld_f):
+        # first get the mask
+        z_s, kld_s = self._encode(self.vae_shape, x)
+        if iepoch >= self.fixed_mask_epochs:    
+            mask = self._decode(self.vae_shape, z_s)
+            mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+        else:
+            mask = self.fixed_mask(x,r=0.2)
+            
+        # now mask the input
+        if self.detach_mask[0]:
+            x_m = x * mask.detach()
+        else:
+            x_m = x * mask
+
+        # now use this as input to the remaining vaes
+        z_b, kld_b = self._encode(self.vae_background, x_m)
+        z_f, kld_f = self._encode(self.vae_foreground, x_m)
+        background = self._decode(self.vae_background, z_b)
+        foreground = self._decode(self.vae_foreground, z_f)
+        
+        # shuffle
+        if self.shuffle:
+            background = self.shuffler(background)
+            foreground = self.shuffler(foreground)
+        
+        # merge them together
+        if self.detach_mask[1]:
+            x_hat = self.compose_image(mask.detach(), background, foreground)
+        else:
+            x_hat = self.compose_image(mask, background, foreground)
+
+        # and reconstruct
+        mu_x = x_hat
+        log_var_x = self.log_var_net_x(x_hat)
+        std_x = self.std(log_var_x)
+        lpx = torch.mean(logpx(x, mu_x, std_x))
+        
+        # get elbo
+        kld = kld_s + kld_b + kld_f
+        elbo = torch.mean(kld - lpx)
+        
+        # get mask loss
+        bin_l = self.binary_loss(mask)
+        mask_l = self.mask_loss(mask).mean()
+        
+        # get the texture loss
+        text_l = self.texture_loss(x, mask, foreground)
+
+        # do a step    
+        self.opts.zero_grad(['sgvae'])
+        l = elbo + bin_l + mask_l + text_l
+        l.backward()
+        self.opts.step(['sgvae'], False)
+
+        return l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f
+
+    def setup_paths(self, X, save_path, save_weights, n_epochs, save_iter, workers):
+        print(f'Creating save path {save_path}.')
+        model_path = Path(save_path)
+        weights_path = model_path / 'weights'
+        sample_path = model_path / 'samples'
+        if save_weights:
+            weights_path.mkdir(parents=True, exist_ok=True)
+        else:
+            print("If you want to save weights, set save_weights=True.")
+        sample_path.mkdir(parents=True, exist_ok=True)
+
+        # dump config
+        cfg = copy.deepcopy(self.config)
+        cfg.n_epochs = n_epochs
+        cfg.save_iter = save_iter
+        cfg.save_path = save_path
+        cfg.workers = workers
+        save_cfg(cfg, model_path / "cfg.yaml")
+
+        # samples for reconstruction
+        x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
+
+        return x_sample, model_path, sample_path, weights_path
+        
+    def log_losses(self, losses_all, niter, epoch, auc_val, l, elbo, kld, lpx, bin_l, mask_l, text_l,
+                     kld_s, kld_b, kld_f):
         niter += 1
         losses_all['iter'].append(niter)
         losses_all['epoch'].append(epoch)
@@ -261,16 +351,28 @@ class SGVAE(nn.Module):
         losses_all['kld_background'].append(get_float(kld_b))
         losses_all['kld_foreground'].append(get_float(kld_f))
         losses_all['binary'].append(get_float(bin_l))
+        losses_all['mask'].append(get_float(mask_l))
+        losses_all['texture'].append(get_float(text_l))
 
-    def print_progress(self, pbar, i, nsteps, auc_val, l, elbo, kld, lpx, bin_l, *args):
+    def print_progress(self, pbar, i, nsteps, auc_val, l, elbo, kld, lpx, bin_l, mask_l, text_l, *args):
         msg = f"[Batch {i}/{nsteps}]"
         msg += ''.join(f"[loss: {get_float(l):.3f}]")
         msg += ''.join(f"[elbo: {get_float(elbo):.3f}]")
         msg += ''.join(f"[kld: {get_float(kld):.3f}]")
         msg += ''.join(f"[logpx: {get_float(lpx):.3f}]")
         msg += ''.join(f"[binary: {get_float(bin_l):.3f}]")
+        msg += ''.join(f"[mask: {get_float(mask_l):.3f}]")
+        msg += ''.join(f"[texture: {get_float(text_l):.3f}]")
         msg += ''.join(f"[auc val: {auc_val:.3f}]")
         pbar.set_description(msg)
+
+    def fixed_mask(self, x, r=0.1):
+        """Create a fixed mask where (1-r) ratio of inner pixels are ones."""
+        mask = torch.zeros(x.shape)
+        sz = np.array(mask.shape[2:])
+        mask[:,:,round(sz[0]*r):round(sz[0]*(1-r)), round(sz[1]*r):round(sz[1]*(1-r))] = 1
+        mask = mask.to(self.device)
+        return mask
 
     def std(self, log_var):
         if self.config.std_approx == "exp":
@@ -291,6 +393,12 @@ class SGVAE(nn.Module):
         mu_x, log_var_x = vae.decode(z)
         return mu_x
     
+    def compose_image(self, mask, background, foreground):
+        if self.latent_structure == "independent":
+            return mask * foreground + (1 - mask) * background
+        elif self.latent_structure == "mask_dependent":
+            return mask * foreground + (1 - mask) * background #foreground + background
+
     def encode(self, x):
         """For given x, returns means and logvars in z space for all vaes in the model."""
         encodings_s = self.vae_shape.encode(x)
@@ -334,7 +442,8 @@ class SGVAE(nn.Module):
         mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
 
         # now get he man and std and sample
-        mu_x = mask * foreground + (1 - mask) * background
+        mu_x = self.compose_image(mask, background, foreground)
+        
         log_var_x = self.log_var_net_x(mu_x)
         std_x = self.std(log_var_x)
         return rp_trick(mu_x, std_x)
@@ -342,16 +451,38 @@ class SGVAE(nn.Module):
     def decode_image_mean(self, zs, shuffle=False):
         """For given set of z space encodings, returns a mean final image."""
         mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
-        return mask * foreground + (1 - mask) * background
+        return self.compose_image(mask, background, foreground)
 
     def forward(self, x, shuffle=False):
-        """Returns clamped mask, background, foreground."""                
-        return self.decode_image_components(self.encoded(x), shuffle=shuffle)
+        """Returns clamped mask, background, foreground."""
+        if self.latent_structure == "independent":               
+            return self.decode_image_components(self.encoded(x), shuffle=shuffle)
+        elif self.latent_structure == "mask_dependent":
+            # first get the mask
+            z_s, kld_s = self._encode(self.vae_shape, x)
+            mask = self._decode(self.vae_shape, z_s)
+            mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+            
+            # now mask the input
+            x_m = x * mask        
+
+            # now use this as input to the remaining vaes
+            z_b, kld_b = self._encode(self.vae_background, x_m)
+            z_f, kld_f = self._encode(self.vae_foreground, x_m)
+            background = self._decode(self.vae_background, z_b)
+            foreground = self._decode(self.vae_foreground, z_f)
+            
+            # shuffle
+            if self.shuffle:
+                background = self.shuffler(background)
+                foreground = self.shuffler(foreground)
+            
+            return mask, background, foreground
 
     def reconstruct(self, x, shuffle=False):
         """Returns sampled reconstruction of x."""
         mask, background, foreground = self(x, shuffle=shuffle)        
-        mu_x = mask * foreground + (1 - mask) * background
+        mu_x = self.compose_image(mask, background, foreground)
         log_var_x = self.log_var_net_x(mu_x)
         std_x = self.std(log_var_x)
         return rp_trick(mu_x, std_x)
@@ -359,7 +490,7 @@ class SGVAE(nn.Module):
     def reconstruct_mean(self, x, shuffle=False):
         """Returns mean reconstruction of x."""
         mask, background, foreground = self(x, shuffle=shuffle)        
-        return mask * foreground + (1 - mask) * background
+        return self.compose_image(mask, background, foreground)
 
     def generate(self, n, shuffle=False):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
@@ -453,8 +584,9 @@ class SGVAE(nn.Module):
         return np.mean(lpxs, 0)
 
     def cpu_copy(self):
-        device = self.device # save the original device
-        self.move_to('cpu') # move to cpu
-        cp = copy.deepcopy(self)
-        self.move_to(device)
+#        device = self.device # save the original device
+ #       self.move_to('cpu') # move to cpu
+  #      cp = copy.deepcopy(self)
+   #     self.move_to(device)
+        cp = self
         return cp        
