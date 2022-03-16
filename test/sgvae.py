@@ -6,11 +6,14 @@ import torch
 import shutil
 import time
 import copy
+from torch import nn
 
 from sgad.sgvae import SGVAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
 from sgad.sgvae.utils import all_equal_params, all_nonequal_params
+from sgad.utils import save_cfg, load_cfg, construct_model, load_model
 
+_tmp = "./_tmp_sgvae"
 X_raw, y_raw = load_wildlife_mnist(denormalize=False)
 
 class TestConstructor(unittest.TestCase):
@@ -81,8 +84,44 @@ class TestUtils(unittest.TestCase):
         zs = [torch.ones(1,32) for _ in range(3)]
         self.assertTrue((model.decode(zs)[2][0] == _model.decode(zs)[2][0]).all().item())
 
+    def test_load_from_cfg(self):
+        # first test loading of the config files
+        model = SGVAE(h_channels=1)
+        cf = "test.yaml"
+        save_cfg(model.config, cf)
+        cfg = load_cfg(cf)
+        self.assertTrue(model.config == cfg)
+        model_new = model_from_config(SGVAE, cf)
+        self.assertTrue(model.config == model_new.config)
+        os.remove(cf)
+
+        # now test model construction
+        model_path, sample_path, weights_path = model.setup_paths(_tmp, True, 20, 20, 2)
+        cf = os.path.join(_tmp, "cfg.yaml")
+        cfg = load_cfg(cf)
+        model_new = construct_model(SGVAE, cf)
+        self.assertTrue(model.config == model_new.config)
+
+        # loading of the whole model
+        wf = os.path.join(weights_path, "200.pth")
+        model.save_weights(wf)
+        model_new = load_model(SGVAE, _tmp)
+        self.assertTrue(model.config == model_new.config)
+        self.assertTrue(all_equal_params(model, model_new))
+
+        # test if choosing the iter works
+        model.log_var_x_global.data = nn.Parameter(torch.Tensor([-2.0]))
+        wf = os.path.join(weights_path, "400.pth")
+        model.save_weights(wf)
+        model_new = load_model(SGVAE, _tmp)
+        self.assertTrue(model.config == model_new.config)
+        all_equal_params(model, model_new)
+        model_new = load_model(SGVAE, _tmp, 200)
+        self.assertTrue(model.config == model_new.config)
+        self.assertTrue(not all_equal_params(model, model_new))
+        shutil.rmtree(_tmp)
+
 # test saving weights
-_tmp = "./_tmp_sgvae"
 class TestFit(unittest.TestCase):
     def test_fit_default(self):
         nc = 0

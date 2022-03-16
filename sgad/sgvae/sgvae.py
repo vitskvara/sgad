@@ -139,8 +139,10 @@ class SGVAE(nn.Module):
         # setup save paths
         if save_path is not None:
             save_results = True
-            x_sample, model_path, sample_path, weights_path = self.setup_paths(
-                X, save_path, save_weights, n_epochs, save_iter, workers)
+            model_path, sample_path, weights_path = self.setup_paths(
+                save_path, save_weights, n_epochs, save_iter, workers)
+            # samples for reconstruction
+            x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
         else:
             save_results = False
 
@@ -198,7 +200,6 @@ class SGVAE(nn.Module):
         # return self as best model
         if X_val is None:
             best_model = self.cpu_copy()
-            best_model.eval()
             best_epoch = n_epochs
 
         return losses_all, best_model, best_epoch
@@ -313,7 +314,7 @@ class SGVAE(nn.Module):
 
         return l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f
 
-    def setup_paths(self, X, save_path, save_weights, n_epochs, save_iter, workers):
+    def setup_paths(self, save_path, save_weights, n_epochs, save_iter, workers):
         print(f'Creating save path {save_path}.')
         model_path = Path(save_path)
         weights_path = model_path / 'weights'
@@ -332,10 +333,7 @@ class SGVAE(nn.Module):
         cfg.workers = workers
         save_cfg(cfg, model_path / "cfg.yaml")
 
-        # samples for reconstruction
-        x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
-
-        return x_sample, model_path, sample_path, weights_path
+        return model_path, sample_path, weights_path
         
     def log_losses(self, losses_all, niter, epoch, auc_val, l, elbo, kld, lpx, bin_l, mask_l, text_l,
                      kld_s, kld_b, kld_f):

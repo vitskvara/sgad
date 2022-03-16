@@ -36,7 +36,8 @@ class VAE(nn.Module):
                  lr=0.0002,
                  betas=[0.5, 0.999],
                  device=None,
-                 log_var_x_estimate = "conv_net"
+                 log_var_x_estimate = "conv_net",
+                 **kwargs
                 ):
         """
         VAE constructor
