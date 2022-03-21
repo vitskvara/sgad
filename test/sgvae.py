@@ -46,8 +46,9 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.opts._modules['sgvae'].defaults['lr'] == 0.0002)
         self.assertTrue(model.opts._modules['sgvae'].defaults['betas'] == [0.5, 0.999])
 
-        self.assertTrue(model.config.lambda_mask == 0.3)
-        self.assertTrue(model.config.weight_mask == 100.0)        
+        self.assertTrue(model.config.tau_mask == 0.1)
+        self.assertTrue(model.config.weight_mask == 1.0)
+        self.assertTrue(model.config.weight_binary == 1.0)
         self.assertTrue(model.config.z_dim == 32)
         self.assertTrue(model.config.h_channels == 32)
         self.assertTrue(model.config.img_dim == 32)
@@ -91,7 +92,7 @@ class TestUtils(unittest.TestCase):
         save_cfg(model.config, cf)
         cfg = load_cfg(cf)
         self.assertTrue(model.config == cfg)
-        model_new = model_from_config(SGVAE, cf)
+        model_new = construct_model(SGVAE, cf)
         self.assertTrue(model.config == model_new.config)
         os.remove(cf)
 
@@ -154,9 +155,7 @@ class TestParams(unittest.TestCase):
         _model = copy.deepcopy(model)
         model.fit(X,
             n_epochs=2, 
-            save_iter=1000, 
-            verb=True, 
-            save_results=False
+            verb=True
            )
         # check the equality of params
         self.assertTrue(not all_equal_params(model, _model))
@@ -167,7 +166,8 @@ class TestParams(unittest.TestCase):
         self.assertTrue(not all_nonequal_params(model, _model))
         model.vae_foreground.log_var_x_global.data=torch.tensor([-3]).to(model.device)
         # now the rest of the params must have changed
-        self.assertTrue(all_nonequal_params(model, _model))
+        #self.assertTrue(all_nonequal_params(model, _model))
+        self.assertTrue(not model.vae_shape.log_var_x_global.data == _model.vae_shape.log_var_x_global.data)
         self.assertTrue(all_nonequal_params(model.vae_shape.encoder, _model.vae_shape.encoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.decoder, _model.vae_shape.decoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, _model.vae_shape.mu_net_z))

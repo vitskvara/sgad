@@ -57,7 +57,7 @@ class SVHN2(Dataset):
     def __len__(self):
         return len(self.labels)
 
-def split_dataset(dataset, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
+def split_dataset(dataset, ratios=(0.6,0.2,0.2), seed=None, target_class=None, normalize=False):
     if target_class is None:
         split_inds = train_val_test_inds(np.arange(len(dataset)), ratios=ratios, seed=seed)
         (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels) = split_data_labels(dataset.data, dataset.labels, split_inds)
@@ -82,7 +82,10 @@ def split_dataset(dataset, ratios=(0.6,0.2,0.2), seed=None, target_class=None):
         tst_data = torch.cat((n_tst_data, a_tst_data))
         tst_labels = torch.cat((n_tst_labels, a_tst_labels))
 
-    return Subset(tr_data, tr_labels), Subset(val_data, val_labels), Subset(tst_data, tst_labels)
+    return (Subset(tr_data, tr_labels, normalize=normalize), 
+        Subset(val_data, val_labels, normalize=normalize), 
+        Subset(tst_data, tst_labels, normalize=normalize)
+        )
 
 class Subset(Dataset):
     def __init__(self, data, labels, normalize=False):
