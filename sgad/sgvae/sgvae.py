@@ -566,13 +566,11 @@ class SGVAE(nn.Module):
     def logpx(self, x, n=1, shuffle=False):
         lpxs = []
         for i in range(n):
-            # get zs and components
-            # TODO - this is wrong for the mask dependent model
-            zs = self.encoded(x)
-            mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
+            # get the components
+            mask, background, foreground = self(x, shuffle=shuffle)
 
             # now get the mean and std
-            mu_x = mask * foreground + (1 - mask) * background
+            mu_x = self.compose_image(mask, background, foreground)
             log_var_x = self.log_var_net_x(mu_x)
             std_x = self.std(log_var_x)
             lpx = logpx(x, mu_x, std_x)
@@ -592,7 +590,7 @@ class SGVAE(nn.Module):
                 mask, background, foreground = self.decode_image_components(mzs, shuffle=shuffle)
 
                 # now get the mean and std
-                mu_x = mask * foreground + (1 - mask) * background
+                mu_x = self.compose_image(mask, background, foreground)
                 log_var_x = self.log_var_net_x(mu_x)
                 std_x = self.std(log_var_x)
                 lpx = logpx(x, mu_x, std_x)
