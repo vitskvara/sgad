@@ -21,7 +21,7 @@ def construct_model(mc, cf):
     cfg = load_cfg(cf)
     return mc(**dict(zip(cfg.keys(), cfg.values())))
 
-def load_model(mc, md, niter=None):
+def load_model(mc, md, niter=None, device=None):
     """
     load_model(model_constructor, model_dir, niter=None)
 
@@ -30,6 +30,8 @@ def load_model(mc, md, niter=None):
     # first construct model with the saved params
     cf = os.path.join(md, "cfg.yaml")
     model = construct_model(mc, cf)
+    if device is not None:
+        model.move_to(device)
     # then load weights and replace them
     wdir = os.path.join(md, "weights")
     if niter is None: # load the latest one
@@ -37,6 +39,9 @@ def load_model(mc, md, niter=None):
         wfs = list(map(lambda x: int(x.split(".")[0]), wfs))
         niter = max(wfs)
     wf = os.path.join(wdir, f'{niter}.pth')
-    weights = torch.load(wf)
+    if device is None:
+        weights = torch.load(wf)
+    else:
+        weights = torch.load(wf, map_location=torch.device(device))
     model.load_state_dict(weights)
     return model

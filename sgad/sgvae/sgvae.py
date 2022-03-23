@@ -605,4 +605,5 @@ class SGVAE(nn.Module):
   #      cp = copy.deepcopy(self)
    #     self.move_to(device)
         cp = self
-        return cp        
+        return cp
+        
