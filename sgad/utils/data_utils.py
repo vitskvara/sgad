@@ -52,6 +52,29 @@ def load_wildlife_mnist(train=True, denormalize=True):
         data = data*0.5 + 0.5
     return data, labels
 
+def load_wildlife_mnist_split(anomaly_class, seed=1, train=True, denormalize=True):
+    path = datadir("raw_datasets/wildlife_MNIST/training_splits")
+    ac = anomaly_class
+    if train:
+        tr_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_data.npy'))
+        tr_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_labels.npy'))
+        tr_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_classes.npy'))
+
+        val_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_data.npy'))
+        val_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_labels.npy'))
+        val_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_classes.npy'))
+
+        tst_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_data.npy'))
+        tst_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_labels.npy'))
+        tst_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_classes.npy'))
+    else:
+        raise ValueError("train=False not implemented")
+    if denormalize:
+        tr_x = tr_x*0.5 + 0.5
+        val_x = val_x*0.5 + 0.5
+        tst_x = tst_x*0.5 + 0.5
+    return (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c)
+
 def load_svhn2():
     path = datadir("raw_datasets/svhn2")
     data = np.load(os.path.join(path, "data.npy"))

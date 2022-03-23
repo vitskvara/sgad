@@ -569,6 +569,7 @@ class SGVAE(nn.Module):
         lpxs = []
         for i in range(n):
             # get zs and components
+            # TODO - this is wrong for the mask dependent model
             zs = self.encoded(x)
             mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
 
@@ -580,6 +581,27 @@ class SGVAE(nn.Module):
             lpxs.append(lpx.data.to('cpu').numpy())
 
         return -np.mean(lpxs, 0)
+
+    def logpx_fixed_latents(self, x, n=1, shuffle=False):
+        lpxs = [[],[],[]]
+        for i in range(n):
+            # get zs and components
+            zs = self.encoded(x)
+            for i in range(3):
+                mzs = [z for z in zs]
+                p = torch.distributions.Normal(torch.zeros(zs[i].shape), torch.ones(zs[i].shape))
+                mzs[i] = p.rsample().to(self.device)
+                mask, background, foreground = self.decode_image_components(mzs, shuffle=shuffle)
+
+                # now get the mean and std
+                mu_x = mask * foreground + (1 - mask) * background
+                log_var_x = self.log_var_net_x(mu_x)
+                std_x = self.std(log_var_x)
+                lpx = logpx(x, mu_x, std_x)
+                lpxs[i].append(lpx.data.to('cpu').numpy())
+
+        return [-np.mean(lpx, 0) for lpx in lpxs]
+
 
     def cpu_copy(self):
 #        device = self.device # save the original device
