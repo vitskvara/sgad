@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torchvision.utils import save_image
 
 from cgn.config import get_cfg_defaults
-from cgn.dataloader import get_dataloaders
+from sgad.utils import get_dataloaders
 from cgn.models import CGN, DiscLin, DiscConv
 from utils import save_cfg, load_cfg, children, hook_outputs, Optimizers
 from shared.losses import BinaryLoss, PerceptualLoss

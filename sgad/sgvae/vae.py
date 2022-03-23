@@ -15,10 +15,8 @@ import os
 import time
 import random
 
-from sgad.cgn.models.cgn import Reshape
-from sgad.cgn.models.cgn import init_net
-from sgad.utils import save_cfg, Optimizers, compute_auc
-from sgad.cgn.dataloader import Subset
+from sgad.cgn.models.cgn import Reshape, init_net
+from sgad.utils import save_cfg, Optimizers, compute_auc, Subset
 from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick, batched_score, logpx
 
 class VAE(nn.Module):

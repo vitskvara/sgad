@@ -15,7 +15,8 @@ from torchvision.utils import save_image
 
 from cgn import get_own_dataloaders
 from cgn.config import get_cfg_defaults
-from cgn.dataloader import CIFAR10
+from cgn.dataloader import 
+from sgad.utils import CIFAR10
 from cgn.models import CGN, DiscLin, DiscConv
 from utils import save_cfg, load_cfg, children, hook_outputs, Optimizers
 from shared.losses import BinaryLoss, PerceptualLoss

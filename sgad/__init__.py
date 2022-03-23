@@ -4,4 +4,4 @@ from . import shared
 from . import sgvae
 
 # check if the datadir is setup
-utils.data_utils.check_create_datadir()
+utils.data.check_create_datadir()

@@ -13,13 +13,11 @@ import random
 import pandas
 import os
 
-from sgad.cgn.dataloader import Subset
-from sgad.utils import Optimizers
+from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float
-from sgad.shared.losses import BinaryLoss, MaskLoss
-from sgad.shared.losses import PerceptualLoss, PercLossText
+from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 
 # Shape-Guided Variational AutoEncoder
 class SGVAE(nn.Module):

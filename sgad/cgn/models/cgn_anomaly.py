@@ -13,10 +13,9 @@ import os
 import time
 
 from sgad.shared.losses import BinaryLoss, PerceptualLoss
-from sgad.utils import save_cfg, Optimizers, compute_auc
+from sgad.utils import save_cfg, Optimizers, compute_auc, Subset
 from .cgn import CGN
 from .discriminator import DiscLin, DiscConv
-from sgad.cgn.dataloader import Subset
 
 class CGNAnomaly(nn.Module):
     def __init__(

@@ -1,8 +1,7 @@
 import torch
 import numpy as np
 from torch import nn
-from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
-from sgad.cgn.models.cgn import get_norm_layer
+from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers, get_norm_layer
 
 class Mean(nn.Module):
     def __init__(self, *args):
