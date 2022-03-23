@@ -7,8 +7,7 @@ import torch
 import shutil
 import time
 
-from sgad.utils import load_cifar10, compute_auc
-from sgad.cgn import Subset
+from sgad.utils import load_cifar10, compute_auc, Subset
 from sgad.cgn.models import CGNAnomaly
 
 X_raw, y_raw = load_cifar10()
@@ -312,5 +311,3 @@ class TestPredict(unittest.TestCase):
 
     def test_perc_score(self):
         self.compare_scores("perceptual")
-
-shutil.rmtree(_tmp)
