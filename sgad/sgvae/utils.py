@@ -44,7 +44,8 @@ def rp_trick(mu, std):
 def logpx(x, mu, std):
     """Normal log prob."""
     p = torch.distributions.Normal(mu, std)
-    return p.log_prob(x).sum((1,2,3))
+    dims = tuple(range(1,len(x.shape)))
+    return p.log_prob(x).sum(dims)
 
 def batched_score(scoref, loader, device, *args, **kwargs):
     scores = []
@@ -54,7 +55,7 @@ def batched_score(scoref, loader, device, *args, **kwargs):
         score = scoref(x, *args, **kwargs)
         scores.append(score)
 
-    return np.concatenate(scores)
+    return np.concatenate(scores, -1)
 
 def all_equal_params(m1, m2):
     """Returns True if all parameters of the two models are the same (does not check for device)."""

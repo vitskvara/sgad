@@ -34,6 +34,7 @@ class SGVAE(nn.Module):
         weight_mask=1.0,
         tau_mask=0.1,       
         log_var_x_estimate_top = "global",
+        alphas = np.array([0.0, 0.0, 0.0]),
         latent_structure="independent",
         shuffle=False, 
         fixed_mask_epochs=0,
@@ -58,7 +59,8 @@ class SGVAE(nn.Module):
             shuffle=False, 
             fixed_mask_epochs=0,
             detach_mask = [True, False], 
-            log_var_x_estimate_top = "global", 
+            log_var_x_estimate_top = "global",
+            alphas = [0.0, 0.0, 0.0],
             **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
@@ -126,6 +128,9 @@ class SGVAE(nn.Module):
         self.opts = Optimizers()
         self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
         
+        # alphas for joint prediction
+        self.config.alphas = alphas
+
         # reset seed
         torch.random.seed()
 
@@ -577,22 +582,38 @@ class SGVAE(nn.Module):
         save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
         save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
 
-    def predict(self, X, *args, score_type="logpx", workers=12, **kwargs):
+    def predict(self, X, *args, score_type="logpx", latent_score_type="normal", 
+            workers=12, batch_size=None, **kwargs):
         if not score_type in ["logpx"]:
             raise ValueError("Must be one of ['logpx'].")
         
         # create the loader
+        if batch_size is None:
+            batch_size = self.config.batch_size
         y = torch.zeros(X.shape[0]).long()
         loader = DataLoader(Subset(torch.tensor(X).float(), y), 
-            batch_size=self.config.batch_size, 
+            batch_size=batch_size, 
             shuffle=False, 
             num_workers=workers)
         
         # get the scores
         if score_type == "logpx":
-            return batched_score(self.logpx, loader, self.device, *args, **kwargs)
+            basic_score = batched_score(self.logpx, loader, self.device, *args, **kwargs)
         else:
-            raise ValueError("unknown score type")
+            raise ValueError(f'unknown score type {score_type}')
+
+        # if alphas are not set, do not waste time with computing the latent score
+        alphas = np.array(self.config.alphas).reshape(1,3)
+        if all(alphas == 0.0):
+            return basic_score
+
+        # otherwise, compute it and return the sum weighted by alphas
+        if latent_score_type == "normal":
+            latent_score = batched_score(self.normal_latent_score, loader, self.device, *args, **kwargs)
+        else:
+            raise ValueError(f'unknown latent score type {latent_score_type}')
+
+        return basic_score + np.matmul(alphas, latent_score)
 
     def logpx(self, x, n=1, shuffle=False):
         lpxs = []
@@ -608,6 +629,16 @@ class SGVAE(nn.Module):
             lpxs.append(lpx.data.to('cpu').numpy())
 
         return -np.mean(lpxs, 0)
+
+    def normal_latent_score(self, x, n=1):
+        scores = []
+        for i in range(n):
+            zs = self.encoded(x)
+            mu = lambda z: torch.zeros(z.shape).to(self.device)
+            std = lambda z: torch.ones(z.shape).to(self.device)
+            scores.append([logpx(z, mu(z), std(z)).detach().to('cpu').numpy() for z in zs])
+            
+        return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
 
     def logpx_fixed_latents(self, x, n=1, shuffle=False):
         lpxs = [[],[],[]]
