@@ -17,7 +17,8 @@ import random
 
 from sgad.cgn.models.cgn import Reshape, init_net
 from sgad.utils import save_cfg, Optimizers, compute_auc, Subset
-from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick, batched_score, logpx
+from sgad.sgvae.utils import Mean, ConvBlock, Encoder, TextureDecoder, ShapeDecoder, rp_trick
+from sgad.sgvae.utils import batched_score, logpx
 
 class VAE(nn.Module):
     def __init__(self, 

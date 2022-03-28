@@ -16,8 +16,9 @@ import os
 from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
-from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float
+from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
+from sgad.cgn.models.cgn import Reshape, init_net
 
 # Shape-Guided Variational AutoEncoder
 class SGVAE(nn.Module):
@@ -32,10 +33,11 @@ class SGVAE(nn.Module):
         weight_binary=1.0,
         weight_mask=1.0,
         tau_mask=0.1,       
+        log_var_x_estimate_top = "global",
         latent_structure="independent",
         shuffle=False, 
         fixed_mask_epochs=0,
-        detach_mask = [False, False],
+        detach_mask = [True, False],
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -45,10 +47,19 @@ class SGVAE(nn.Module):
         betas=[0.5, 0.999],
         device=None
     """
-    def __init__(self, weights_texture = [0.01, 0.05, 0.0, 0.01], weight_binary=1.0,
-        weight_mask=1.0, tau_mask=0.1, std_approx="exp", 
-        device=None, latent_structure="independent", shuffle=False, fixed_mask_epochs=0,
-        detach_mask = [False, False], **kwargs):
+    def __init__(self, 
+            weights_texture = [0.01, 0.05, 0.0, 0.01], 
+            weight_binary=1.0,
+            weight_mask=1.0, 
+            tau_mask=0.1, 
+            std_approx="exp", 
+            device=None, 
+            latent_structure="independent", 
+            shuffle=False, 
+            fixed_mask_epochs=0,
+            detach_mask = [True, False], 
+            log_var_x_estimate_top = "global", 
+            **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
                 
@@ -65,6 +76,11 @@ class SGVAE(nn.Module):
         self.config.tau_mask = tau_mask
         self.z_dim = self.config.z_dim
         self.config.pop('vae_type')
+
+        # seed
+        init_seed = self.config.init_seed
+        if init_seed is not None:
+            torch.random.manual_seed(init_seed)
 
         # mask and texture loss
         self.binary_loss = BinaryLoss(weight_binary)
@@ -91,13 +107,28 @@ class SGVAE(nn.Module):
         self.config.fixed_mask_epochs = fixed_mask_epochs
 
         # x log var
-        self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
-        self.log_var_net_x = lambda x: self.log_var_x_global
+        self.config.log_var_x_estimate_top = log_var_x_estimate_top
+        if log_var_x_estimate_top == "conv_net":
+            self.log_var_net_x = nn.Sequential(
+                nn.Conv2d(self.vae_foreground.out_channels, 1, 3, stride=1, padding=1, bias=False),
+                Mean(1,2,3),
+                Reshape(-1,1,1,1)
+                )
+            self.log_var_x_global = None
+            init_net(self.log_var_net_x, init_type=self.config.init_type, init_gain=self.config.init_gain)
+        elif log_var_x_estimate_top == "global":
+            self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
+            self.log_var_net_x = lambda x: self.log_var_x_global
+        else:
+            warnings.warn(f"log_var_x_estimate_top {log_var_x_estimate_top} not known, you should set .log_var_net_x with a callable function")
 
         # optimizer
         self.opts = Optimizers()
         self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
         
+        # reset seed
+        torch.random.seed()
+
         # move to device
         self.move_to(device)
 
