@@ -155,7 +155,7 @@ class TestFit(unittest.TestCase):
 
         # fit the goddamn logistic regression
         Xf = X_raw[:1000]
-        yf = (y_raw[:1000] != ac).astype('int')
+        yf = (y_raw[:1000] != nc).astype('int')
         self.assertTrue(model.alpha is None)
         model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2)
         self.assertTrue(model.alpha is not None)
@@ -163,9 +163,9 @@ class TestFit(unittest.TestCase):
         sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
         sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True)
         s = np.concatenate((sn, sa))
-        y = (np.concatenate((yn, ya)) != ac).astype('int')
+        y = (np.concatenate((yn, ya)) != nc).astype('int')
         self.assertTrue(compute_auc(y, s) > 0.5)
-        self.assertTrue((0.0 <= val_probs).all() and (val_probs  <= 1.0).all())
+        self.assertTrue((0.0 <= s).all() and (s  <= 1.0).all())
 
         shutil.rmtree(_tmp)
 

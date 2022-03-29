@@ -564,7 +564,7 @@ class SGVAE(nn.Module):
         x_gen = torch.concat(x_gen, 0)
         x_gen_mean = [self.generate_mean(10).to('cpu') for _ in range(n_cols)]
         x_gen_mean = torch.concat(x_gen_mean, 0)
-        _x = torch.tensor(x).to(self.device)
+        _x = torch.tensor(x).to(self.device).float()
         mask, background, foreground = self(_x)
         x_reconstructed = self.reconstruct(_x)
         x_reconstructed = torch.concat((x_reconstructed, mask, foreground, background), 0)
