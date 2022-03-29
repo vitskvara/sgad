@@ -12,6 +12,8 @@ import time
 import random
 import pandas
 import os
+from sklearn.linear_model import LogisticRegression
+import warnings
 
 from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
@@ -34,7 +36,7 @@ class SGVAE(nn.Module):
         weight_mask=1.0,
         tau_mask=0.1,       
         log_var_x_estimate_top = "global",
-        alphas = np.array([0.0, 0.0, 0.0]),
+        alpha = None,
         latent_structure="independent",
         shuffle=False, 
         fixed_mask_epochs=0,
@@ -60,7 +62,7 @@ class SGVAE(nn.Module):
             fixed_mask_epochs=0,
             detach_mask = [True, False], 
             log_var_x_estimate_top = "global",
-            alphas = [0.0, 0.0, 0.0],
+            alpha = None, # or any numpy vector
             **kwargs):
         # supertype init
         super(SGVAE, self).__init__()
@@ -129,7 +131,7 @@ class SGVAE(nn.Module):
         self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
         
         # alphas for joint prediction
-        self.config.alphas = alphas
+        self.set_alpha(alpha)
 
         # reset seed
         torch.random.seed()
@@ -582,11 +584,52 @@ class SGVAE(nn.Module):
         save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
         save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
 
-    def predict(self, X, *args, score_type="logpx", latent_score_type="normal", 
+    def predict(self, X, *args, score_type="logpx", latent_score_type="normal", probability=False,
             workers=12, batch_size=None, **kwargs):
-        if not score_type in ["logpx"]:
-            raise ValueError("Must be one of ['logpx'].")
+        """
+        model.predict(self, X, *fit_fun_args, 
+            score_type="logpx", 
+            latent_score_type="normal", 
+            probability=False,
+            workers=12, 
+            batch_size=None, 
+            **kwargs):
+        """
+        # check if we are not requested something which we cannot do
+        if probability and self.alpha is None:
+            raise ValueError("probability score required, but the alpha coefficients are not fitted, call\n\
+                model.fit_alpha(X,y,*args,**kwargs) first")
+
+        # create the dataloader
+        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+
+        # get the scores
+        basic_score = self._basic_score(loader, score_type, *args, **kwargs)
+
+        # if alpha is not set, do not waste time with computing the latent score
+        if not probability:
+            return basic_score
+            
+        # otherwise, compute it and return the sum weighted by alphas
+        latent_score = self._latent_score(loader, latent_score_type, *args, **kwargs)
+        all_scores = np.concatenate((basic_score.reshape(1,-1), latent_score)).T
+
+        return self.prob_score(all_scores)
+
+    def all_scores(self, X, *args, score_type="logpx", latent_score_type="normal", 
+            workers=12, batch_size=None, **kwargs):
+        # create the dataloader
+        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
         
+        # get the scores
+        basic_score = self._basic_score(loader, score_type, *args, **kwargs)
+
+        # otherwise, compute it and return the sum weighted by alphas
+        latent_score = self._latent_score(loader, latent_score_type, *args, **kwargs)
+
+        return np.concatenate((basic_score.reshape(1,-1), latent_score))
+
+    def _create_score_loader(self, X, batch_size=None, workers=1):
         # create the loader
         if batch_size is None:
             batch_size = self.config.batch_size
@@ -595,25 +638,20 @@ class SGVAE(nn.Module):
             batch_size=batch_size, 
             shuffle=False, 
             num_workers=workers)
-        
-        # get the scores
+        return loader
+
+    def _basic_score(self, loader, score_type, *args, **kwargs):
         if score_type == "logpx":
-            basic_score = batched_score(self.logpx, loader, self.device, *args, **kwargs)
+            return batched_score(self.logpx, loader, self.device, *args, **kwargs)
         else:
             raise ValueError(f'unknown score type {score_type}')
 
-        # if alphas are not set, do not waste time with computing the latent score
-        alphas = np.array(self.config.alphas).reshape(1,3)
-        if all(alphas == 0.0):
-            return basic_score
-
-        # otherwise, compute it and return the sum weighted by alphas
-        if latent_score_type == "normal":
-            latent_score = batched_score(self.normal_latent_score, loader, self.device, *args, **kwargs)
+    def _latent_score(self, loader, score_type, *args, **kwargs):
+        if score_type == "normal":
+            return batched_score(self.normal_latent_score, loader, self.device, *args, **kwargs)
         else:
             raise ValueError(f'unknown latent score type {latent_score_type}')
 
-        return basic_score + np.matmul(alphas, latent_score)
 
     def logpx(self, x, n=1, shuffle=False):
         lpxs = []
@@ -660,6 +698,44 @@ class SGVAE(nn.Module):
 
         return [-np.mean(lpx, 0) for lpx in lpxs]
 
+    ### alpha stuff
+    def set_alpha(self, alpha):
+        if alpha is None:
+            self.alpha = None
+            return
+
+        if not len(alpha) == 4:
+            raise ValueError("given alpha must be a vector of length 4")
+        self.alpha = np.array(alpha).reshape(4,)
+
+    def fit_alpha(self, X, y, *args, **kwargs):
+        """
+        model.fit_alpha(X, y,
+            *args_of_score_funs,
+            score_type="logpx",
+            latent_score_type="normal",
+            workers=12,
+            bathc_size=None,
+            **kwargs_of_score_funs)
+        """
+        scores = self.all_scores(X, *args, **kwargs).T
+        clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
+        alpha = clf.coef_[0]
+        self.set_alpha(alpha)
+        return alpha.reshape(4), clf
+
+    def save_alpha(self, f):
+        np.save(f, self.alpha)
+
+    def load_alpha(self, f):
+        alpha = np.load(f)
+        self.set_alpha(alpha)
+
+    def prob_score(self, scores):
+        ax = np.matmul(scores, self.alpha)
+        with warnings.catch_warnings(): # to filter out the ugly exp overflow error
+            warnings.simplefilter("ignore")
+            return 1/(1+np.exp(ax))
 
     def cpu_copy(self):
 #        device = self.device # save the original device

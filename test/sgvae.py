@@ -124,13 +124,49 @@ class TestUtils(unittest.TestCase):
 
 # test saving weights
 class TestFit(unittest.TestCase):
-    def test_fit_default(self):
+    def test_fit_predict_default(self):
         nc = 0
         X = X_raw[y_raw == nc]
-        model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], lambda_mask=0.3, weight_mask=240.0)
+        model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], lambda_mask=0.3, weight_mask=240.0,
+            weight_binary=100)
         losses_all, best_model, best_epoch = model.fit(X, 
             save_path=_tmp, 
-            n_epochs=4)
+            n_epochs=10)
+
+        # test basic prediction
+        model.eval()
+        n = 128
+        Xn = X_raw[y_raw == nc][:n]
+        yn = y_raw[y_raw == nc][:n]
+        Xa = X_raw[y_raw != nc][:n]
+        ya = y_raw[y_raw != nc][:n]
+        sn = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16)
+        self.assertTrue(len(sn == n))
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal")
+        self.assertTrue(len(sn == n))
+        try:
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        except Exception as e:
+            self.assertTrue(type(e) is ValueError)
+        sa = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16)
+        self.assertTrue(sa.mean() > sn.mean())
+        print(sa.mean())
+        print(sn.mean())
+
+        # fit the goddamn logistic regression
+        Xf = X_raw[:1000]
+        yf = (y_raw[:1000] != ac).astype('int')
+        self.assertTrue(model.alpha is None)
+        model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2)
+        self.assertTrue(model.alpha is not None)
+        self.assertTrue(len(model.alpha) == 4)
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        s = np.concatenate((sn, sa))
+        y = (np.concatenate((yn, ya)) != ac).astype('int')
+        self.assertTrue(compute_auc(y, s) > 0.5)
+        self.assertTrue((0.0 <= val_probs).all() and (val_probs  <= 1.0).all())
+
         shutil.rmtree(_tmp)
 
 class TestParams(unittest.TestCase):
