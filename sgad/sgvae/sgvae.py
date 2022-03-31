@@ -652,7 +652,7 @@ class SGVAE(nn.Module):
             std = lambda z: torch.ones(z.shape).to(self.device)
             scores.append([logpx(z, mu(z), std(z)).detach().to('cpu').numpy() for z in zs])
             
-        return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
+        return np.array([-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
 
     def kld_score(self, x, n=1):
         scores = []
@@ -662,7 +662,7 @@ class SGVAE(nn.Module):
             _, kld_f = self._encode(self.vae_foreground, x)
             scores.append([kld.detach().to('cpu').numpy() for kld in (kld_s, kld_b, kld_f)])
 
-        return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
+        return np.array([-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
 
     def normal_logpx_score(self, x, n=1):
         lpxs = [[],[],[]]
@@ -682,7 +682,7 @@ class SGVAE(nn.Module):
                 lpx = logpx(x, mu_x, std_x)
                 lpxs[i].append(lpx.data.to('cpu').numpy())
 
-        return [-np.mean(lpx, 0) for lpx in lpxs]
+        return np.array([-np.mean(lpx, 0) for lpx in lpxs])
 
     # alpha stuff
     def set_alpha(self, alpha):
