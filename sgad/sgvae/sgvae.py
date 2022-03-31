@@ -622,7 +622,7 @@ class SGVAE(nn.Module):
             return batched_score(self.normal_latent_score, loader, self.device, *args, **kwargs)
         elif score_type == "kld":
             return batched_score(self.kld_score, loader, self.device, *args, **kwargs)
-        elif score_type == "normal_logpx"
+        elif score_type == "normal_logpx":
             return batched_score(self.normal_logpx_score, loader, self.device, *args, **kwargs)
         else:
             raise ValueError(f'unknown latent score type {latent_score_type}')
