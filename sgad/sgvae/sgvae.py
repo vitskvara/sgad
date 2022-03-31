@@ -419,7 +419,7 @@ class SGVAE(nn.Module):
         mu_z, log_var_z = vae.encode(x)
         std_z = vae.std(log_var_z)
         z = rp_trick(mu_z, std_z)
-        kld = torch.mean(vae.kld(mu_z, log_var_z))
+        kld = vae.kld(mu_z, log_var_z)
         return z, kld
     
     def _decode(self, vae, z):
@@ -678,6 +678,9 @@ class SGVAE(nn.Module):
             
         return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
 
+    def kld_score(self, x, n=1):
+
+
     def logpx_fixed_latents(self, x, n=1, shuffle=False):
         lpxs = [[],[],[]]
         for i in range(n):
@@ -718,7 +721,7 @@ class SGVAE(nn.Module):
             batch_size=None,
             **kwargs_of_score_funs)
 
-        Scores must have shape of (n_samples, 4)
+        Scores must have shape of (n_samples, 4).
         """
         clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
         alpha = clf.coef_[0]
