@@ -272,8 +272,11 @@ class SGVAE(nn.Module):
         lpx = torch.mean(logpx(x, mu_x, std_x))
         
         # get elbo
+        kld_s = torch.mean(kld_s)
+        kld_b = torch.mean(kld_b)
+        kld_f = torch.mean(kld_f)
         kld = kld_s + kld_b + kld_f
-        elbo = torch.mean(kld - lpx)
+        elbo = kld - lpx
         
         # get binary loss
         bin_l = self.binary_loss(mask)
@@ -332,8 +335,11 @@ class SGVAE(nn.Module):
         lpx = torch.mean(logpx(x, mu_x, std_x))
         
         # get elbo
+        kld_s = torch.mean(kld_s)
+        kld_b = torch.mean(kld_b)
+        kld_f = torch.mean(kld_f)
         kld = kld_s + kld_b + kld_f
-        elbo = torch.mean(kld - lpx)
+        elbo = kld - lpx
         
         # get mask loss
         bin_l = self.binary_loss(mask)
