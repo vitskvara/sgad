@@ -575,8 +575,8 @@ class SGVAE(nn.Module):
 
         # check if we are predicting using the same score that was used to compute alphas
         if probability and self.alpha_score_type != latent_score_type:
-            raise ValueError(f'requested latent score type f{latent_score_type} is not consistent with \n\
-                the score type used to fit the alphas (f{self.alpha_score_type})')
+            raise ValueError(f'requested latent score type {latent_score_type} is not consistent with \n\
+                the score type used to fit the alphas ({self.alpha_score_type})')
 
         # create the dataloader
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
