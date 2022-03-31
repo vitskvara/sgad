@@ -38,9 +38,7 @@ class SGVAE(nn.Module):
         log_var_x_estimate_top = "global",
         alpha = None,
         latent_structure="independent",
-        shuffle=False, 
         fixed_mask_epochs=0,
-        detach_mask = [True, False],
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -58,9 +56,7 @@ class SGVAE(nn.Module):
             std_approx="exp", 
             device=None, 
             latent_structure="independent", 
-            shuffle=False, 
             fixed_mask_epochs=0,
-            detach_mask = [True, False], 
             log_var_x_estimate_top = "global",
             alpha = None, # or any numpy vector
             **kwargs):
@@ -93,20 +89,12 @@ class SGVAE(nn.Module):
         self.texture_loss = PercLossText(weights_texture, patch_sz=[8, 8], im_sz=self.config.img_dim, 
             sample_sz=100, n_up=6)
 
-        # shuffler
-        img_dim = self.config.img_dim
-        self.shuffle = shuffle
-        self.shuffler = nn.Sequential(Patch2Image(img_dim, 2), RandomCrop(img_dim))
-        self.config.shuffle = shuffle
-
         # training type
         possible_structures = ["independent", "mask_dependent"]
         if not latent_structure in possible_structures:
             raise ValueError(f'Required latent structure {latent_structure} unknown. Choose one of {possible_structures}.')
         self.latent_structure = latent_structure
         self.config.latent_structure = latent_structure
-        self.detach_mask = detach_mask
-        self.config.detach_mask = detach_mask
         self.fixed_mask_epochs = fixed_mask_epochs
         self.config.fixed_mask_epochs = fixed_mask_epochs
 
@@ -259,11 +247,6 @@ class SGVAE(nn.Module):
         background = self._decode(self.vae_background, z_b)
         foreground = self._decode(self.vae_foreground, z_f)
         
-        # shuffle
-        if self.shuffle:
-            background = self.shuffler(background)
-            foreground = self.shuffler(foreground)
-        
         # merge them together
         x_hat = self.compose_image(mask, background, foreground)
         mu_x = x_hat
@@ -306,27 +289,16 @@ class SGVAE(nn.Module):
             mask = self.fixed_mask(x,r=0.2)
             
         # now mask the input
-        if self.detach_mask[0]:
-            x_m = x * mask.detach()
-        else:
-            x_m = x * mask
-
+        x_m = x * mask.detach()
+        
         # now use this as input to the remaining vaes
         z_b, kld_b = self._encode(self.vae_background, x_m)
         z_f, kld_f = self._encode(self.vae_foreground, x_m)
         background = self._decode(self.vae_background, z_b)
         foreground = self._decode(self.vae_foreground, z_f)
         
-        # shuffle
-        if self.shuffle:
-            background = self.shuffler(background)
-            foreground = self.shuffler(foreground)
-        
         # merge them together
-        if self.detach_mask[1]:
-            x_hat = self.compose_image(mask.detach(), background, foreground)
-        else:
-            x_hat = self.compose_image(mask, background, foreground)
+        x_hat = self.compose_image(mask, background, foreground)
 
         # and reconstruct
         mu_x = x_hat
@@ -467,19 +439,16 @@ class SGVAE(nn.Module):
         decodings_f = self.vae_foreground.decoded(zs[2])
         return decodings_s, decodings_b, decodings_f
 
-    def decode_image_components(self, zs, shuffle=False):
+    def decode_image_components(self, zs):
         """Using the means in x space produced by vaes, return the individual image components."""
         (mask, _), (background, _), (foreground, _) = self.decode(zs)
         mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
-        if shuffle:
-            background = self.shuffler(background)
-            foreground = self.shuffler(foreground)
-
+        
         return mask, background, foreground
 
-    def decode_image(self, zs, shuffle=False):
+    def decode_image(self, zs):
         """For given set of z space encodings, returns a sampled final image."""
-        mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
+        mask, background, foreground = self.decode_image_components(zs)
 
         # now get he man and std and sample
         mu_x = self.compose_image(mask, background, foreground)
@@ -488,15 +457,15 @@ class SGVAE(nn.Module):
         std_x = self.std(log_var_x)
         return rp_trick(mu_x, std_x)
 
-    def decode_image_mean(self, zs, shuffle=False):
+    def decode_image_mean(self, zs):
         """For given set of z space encodings, returns a mean final image."""
-        mask, background, foreground = self.decode_image_components(zs, shuffle=shuffle)
+        mask, background, foreground = self.decode_image_components(zs)
         return self.compose_image(mask, background, foreground)
 
-    def forward(self, x, shuffle=False):
+    def forward(self, x):
         """Returns clamped mask, background, foreground."""
         if self.latent_structure == "independent":               
-            return self.decode_image_components(self.encoded(x), shuffle=shuffle)
+            return self.decode_image_components(self.encoded(x))
         elif self.latent_structure == "mask_dependent":
             # first get the mask
             z_s, kld_s = self._encode(self.vae_shape, x)
@@ -511,36 +480,31 @@ class SGVAE(nn.Module):
             z_f, kld_f = self._encode(self.vae_foreground, x_m)
             background = self._decode(self.vae_background, z_b)
             foreground = self._decode(self.vae_foreground, z_f)
-            
-            # shuffle
-            if self.shuffle:
-                background = self.shuffler(background)
-                foreground = self.shuffler(foreground)
-            
+                        
             return mask, background, foreground
 
-    def reconstruct(self, x, shuffle=False):
+    def reconstruct(self, x):
         """Returns sampled reconstruction of x."""
-        mask, background, foreground = self(x, shuffle=shuffle)        
+        mask, background, foreground = self(x)        
         mu_x = self.compose_image(mask, background, foreground)
         log_var_x = self.log_var_net_x(mu_x)
         std_x = self.std(log_var_x)
         return rp_trick(mu_x, std_x)
 
-    def reconstruct_mean(self, x, shuffle=False):
+    def reconstruct_mean(self, x):
         """Returns mean reconstruction of x."""
-        mask, background, foreground = self(x, shuffle=shuffle)        
+        mask, background, foreground = self(x)        
         return self.compose_image(mask, background, foreground)
 
-    def generate(self, n, shuffle=False):
+    def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         zs = [p.sample().to(self.device) for _ in range(3)]
-        return self.decode_image(zs, shuffle=shuffle)
+        return self.decode_image(zs)
 
-    def generate_mean(self, n, shuffle=False):
+    def generate_mean(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         zs = [p.sample().to(self.device) for _ in range(3)]
-        return self.decode_image_mean(zs, shuffle=shuffle)
+        return self.decode_image_mean(zs)
     
     def move_to(self, device=None):
         if device is None:
@@ -590,6 +554,7 @@ class SGVAE(nn.Module):
         save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
         save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
 
+    # predict funs
     def predict(self, X, *args, score_type="logpx", latent_score_type="normal", probability=False,
             workers=12, batch_size=None, **kwargs):
         """
@@ -655,15 +620,19 @@ class SGVAE(nn.Module):
     def _latent_score(self, loader, score_type, *args, **kwargs):
         if score_type == "normal":
             return batched_score(self.normal_latent_score, loader, self.device, *args, **kwargs)
+        elif score_type == "kld":
+            return batched_score(self.kld_score, loader, self.device, *args, **kwargs)
+        elif score_type == "normal_logpx"
+            return batched_score(self.normal_logpx_score, loader, self.device, *args, **kwargs)
         else:
             raise ValueError(f'unknown latent score type {latent_score_type}')
 
-
-    def logpx(self, x, n=1, shuffle=False):
+    # top-level score
+    def logpx(self, x, n=1):
         lpxs = []
         for i in range(n):
             # get the components
-            mask, background, foreground = self(x, shuffle=shuffle)
+            mask, background, foreground = self(x)
 
             # now get the mean and std
             mu_x = self.compose_image(mask, background, foreground)
@@ -674,6 +643,7 @@ class SGVAE(nn.Module):
 
         return -np.mean(lpxs, 0)
 
+    # latent scores
     def normal_latent_score(self, x, n=1):
         scores = []
         for i in range(n):
@@ -685,9 +655,16 @@ class SGVAE(nn.Module):
         return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
 
     def kld_score(self, x, n=1):
-        return None
+        scores = []
+        for i in range(n):
+            _, kld_s = self._encode(self.vae_shape, x)
+            _, kld_b = self._encode(self.vae_background, x)
+            _, kld_f = self._encode(self.vae_foreground, x)
+            scores.append([kld.detach().to('cpu').numpy() for kld in (kld_s, kld_b, kld_f)])
 
-    def logpx_fixed_latents(self, x, n=1, shuffle=False):
+        return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
+
+    def normal_logpx_score(self, x, n=1):
         lpxs = [[],[],[]]
         for i in range(n):
             # get zs and components
@@ -696,7 +673,7 @@ class SGVAE(nn.Module):
                 mzs = [z for z in zs]
                 p = torch.distributions.Normal(torch.zeros(zs[i].shape), torch.ones(zs[i].shape))
                 mzs[i] = p.rsample().to(self.device)
-                mask, background, foreground = self.decode_image_components(mzs, shuffle=shuffle)
+                mask, background, foreground = self.decode_image_components(mzs)
 
                 # now get the mean and std
                 mu_x = self.compose_image(mask, background, foreground)
@@ -707,7 +684,7 @@ class SGVAE(nn.Module):
 
         return [-np.mean(lpx, 0) for lpx in lpxs]
 
-    ### alpha stuff
+    # alpha stuff
     def set_alpha(self, alpha):
         if alpha is None:
             self.alpha = None
