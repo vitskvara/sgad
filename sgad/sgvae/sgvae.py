@@ -708,6 +708,23 @@ class SGVAE(nn.Module):
             raise ValueError("given alpha must be a vector of length 4")
         self.alpha = np.array(alpha).reshape(4,)
 
+    def fit_alpha_from_scores(self, scores, y, *args, **kwargs):
+        """
+        model.fit_alpha(scores, y,
+            *args_of_score_funs,
+            score_type="logpx",
+            latent_score_type="normal",
+            workers=12,
+            batch_size=None,
+            **kwargs_of_score_funs)
+
+        Scores must have shape of (n_samples, 4)
+        """
+        clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
+        alpha = clf.coef_[0]
+        self.set_alpha(alpha)
+        return alpha.reshape(4), clf
+
     def fit_alpha(self, X, y, *args, **kwargs):
         """
         model.fit_alpha(X, y,
@@ -715,14 +732,11 @@ class SGVAE(nn.Module):
             score_type="logpx",
             latent_score_type="normal",
             workers=12,
-            bathc_size=None,
+            batch_size=None,
             **kwargs_of_score_funs)
         """
         scores = self.all_scores(X, *args, **kwargs).T
-        clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
-        alpha = clf.coef_[0]
-        self.set_alpha(alpha)
-        return alpha.reshape(4), clf
+        return self.fit_alpha_from_scores(scores, y, *args, **kwargs)
 
     def save_alpha(self, f):
         np.save(f, self.alpha)
