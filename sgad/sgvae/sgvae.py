@@ -679,7 +679,7 @@ class SGVAE(nn.Module):
         return [-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)]
 
     def kld_score(self, x, n=1):
-
+        return None
 
     def logpx_fixed_latents(self, x, n=1, shuffle=False):
         lpxs = [[],[],[]]
