@@ -182,8 +182,10 @@ class TestFitPredict(unittest.TestCase):
         Xf = X_raw[:1000]
         yf = (y_raw[:1000] != nc).astype('int')
         self.assertTrue(model.alpha is None)
+        self.assertTrue(model.alpha_score_type is None)
         model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2)
         self.assertTrue(model.alpha is not None)
+        self.assertTrue(model.alpha_score_type == "normal")
         self.assertTrue(len(model.alpha) == 4)
         sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
         sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True)
@@ -192,6 +194,22 @@ class TestFitPredict(unittest.TestCase):
         self.assertTrue(compute_auc(y, s) > 0.5)
         self.assertTrue((0.0 <= s).all() and (s  <= 1.0).all())
 
+        # try the errors
+        try:
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="kld", probability=True)
+        except Exception as e:
+            self.assertTrue(type(e) is ValueError)
+        try:
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal_logpx", probability=True)
+        except Exception as e:
+            self.assertTrue(type(e) is ValueError)
+        
+        # save/load alphas
+        model.save_alpha("_alpha.npy")
+        model.load_alpha("_alpha.npy")
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        
+        os.remove("_alpha.npy")
         shutil.rmtree(_tmp)
 
 class TestParams(unittest.TestCase):

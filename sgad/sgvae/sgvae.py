@@ -119,7 +119,7 @@ class SGVAE(nn.Module):
         self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
         
         # alphas for joint prediction
-        self.set_alpha(alpha)
+        self.set_alpha(alpha, alpha_score_type=None)
 
         # reset seed
         torch.random.seed()
@@ -564,12 +564,19 @@ class SGVAE(nn.Module):
             probability=False,
             workers=12, 
             batch_size=None, 
-            **kwargs):
+            **kwargs)
+
+        latent_score_type is one of ["normal", "kld", "normal_logpx"]
         """
         # check if we are not requested something which we cannot do
         if probability and self.alpha is None:
             raise ValueError("probability score required, but the alpha coefficients are not fitted, call\n\
                 model.fit_alpha(X,y,*args,**kwargs) first")
+
+        # check if we are predicting using the same score that was used to compute alphas
+        if probability and self.alpha_score_type != latent_score_type:
+            raise ValueError(f'requested latent score type f{latent_score_type} is not consistent with \n\
+                the score type used to fit the alphas (f{self.alpha_score_type})')
 
         # create the dataloader
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
@@ -589,6 +596,9 @@ class SGVAE(nn.Module):
 
     def all_scores(self, X, *args, score_type="logpx", latent_score_type="normal", 
             workers=12, batch_size=None, **kwargs):
+        """
+        latent_score_type is one of ["normal", "kld", "normal_logpx"]
+        """
         # create the dataloader
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
         
@@ -650,9 +660,9 @@ class SGVAE(nn.Module):
             zs = self.encoded(x)
             mu = lambda z: torch.zeros(z.shape).to(self.device)
             std = lambda z: torch.ones(z.shape).to(self.device)
-            scores.append([logpx(z, mu(z), std(z)).detach().to('cpu').numpy() for z in zs])
+            scores.append([-logpx(z, mu(z), std(z)).detach().to('cpu').numpy() for z in zs])
             
-        return np.array([-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
+        return np.array([np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
 
     def kld_score(self, x, n=1):
         scores = []
@@ -662,7 +672,7 @@ class SGVAE(nn.Module):
             _, kld_f = self._encode(self.vae_foreground, x)
             scores.append([kld.detach().to('cpu').numpy() for kld in (kld_s, kld_b, kld_f)])
 
-        return np.array([-np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
+        return np.array([np.mean(np.array([s[i] for s in scores]), 0) for i in range(3)])
 
     def normal_logpx_score(self, x, n=1):
         lpxs = [[],[],[]]
@@ -679,22 +689,24 @@ class SGVAE(nn.Module):
                 mu_x = self.compose_image(mask, background, foreground)
                 log_var_x = self.log_var_net_x(mu_x)
                 std_x = self.std(log_var_x)
-                lpx = logpx(x, mu_x, std_x)
+                lpx = -logpx(x, mu_x, std_x)
                 lpxs[i].append(lpx.data.to('cpu').numpy())
 
-        return np.array([-np.mean(lpx, 0) for lpx in lpxs])
+        return np.array([np.mean(lpx, 0) for lpx in lpxs])
 
     # alpha stuff
-    def set_alpha(self, alpha):
+    def set_alpha(self, alpha, alpha_score_type):
         if alpha is None:
             self.alpha = None
+            self.alpha_score_type = None
             return
 
         if not len(alpha) == 4:
             raise ValueError("given alpha must be a vector of length 4")
         self.alpha = np.array(alpha).reshape(4,)
+        self.alpha_score_type = alpha_score_type # this is important because we check in in predict
 
-    def fit_alpha_from_scores(self, scores, y, *args, **kwargs):
+    def fit_alpha_from_scores(self, scores, y, latent_score_type, *args, **kwargs):
         """
         model.fit_alpha(scores, y,
             *args_of_score_funs,
@@ -708,10 +720,10 @@ class SGVAE(nn.Module):
         """
         clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
         alpha = clf.coef_[0]
-        self.set_alpha(alpha)
+        self.set_alpha(alpha, latent_score_type)
         return alpha.reshape(4), clf
 
-    def fit_alpha(self, X, y, *args, **kwargs):
+    def fit_alpha(self, X, y, *args, latent_score_type="normal", **kwargs):
         """
         model.fit_alpha(X, y,
             *args_of_score_funs,
@@ -721,15 +733,23 @@ class SGVAE(nn.Module):
             batch_size=None,
             **kwargs_of_score_funs)
         """
-        scores = self.all_scores(X, *args, **kwargs).T
-        return self.fit_alpha_from_scores(scores, y, *args, **kwargs)
+        scores = self.all_scores(X, *args, latent_score_type=latent_score_type, **kwargs).T
+        return self.fit_alpha_from_scores(scores, y, latent_score_type, *args, **kwargs)
 
     def save_alpha(self, f):
-        np.save(f, self.alpha)
+        if self.alpha is None:
+            raise ValueError("alpha is not fitted, cannot save it")
+        if self.alpha_score_type is None:
+            raise ValueError("alpha score is not set, cannot save alpha")
+
+        x = np.concatenate((self.alpha, np.array([self.alpha_score_type])))
+        np.save(f, x)
 
     def load_alpha(self, f):
-        alpha = np.load(f)
-        self.set_alpha(alpha)
+        x = np.load(f)
+        alpha = x[:4].astype('float64')
+        latent_score_type = x[4]
+        self.set_alpha(alpha, latent_score_type)
 
     def prob_score(self, scores):
         ax = np.matmul(scores, self.alpha)
