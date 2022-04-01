@@ -12,13 +12,11 @@ import time
 import random
 import pandas
 import os
-from sklearn.linear_model import LogisticRegression
-import warnings
 
 from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
-from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean
+from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -718,10 +716,9 @@ class SGVAE(nn.Module):
 
         Scores must have shape of (n_samples, 4).
         """
-        clf = LogisticRegression(fit_intercept=False).fit(scores, 1-y)
-        alpha = clf.coef_[0]
+        alpha, clf = logreg_fit(scores, 1-y)
         self.set_alpha(alpha, latent_score_type)
-        return alpha.reshape(4), clf
+        return alpha, clf
 
     def fit_alpha(self, X, y, *args, latent_score_type="normal", **kwargs):
         """
@@ -752,10 +749,7 @@ class SGVAE(nn.Module):
         self.set_alpha(alpha, latent_score_type)
 
     def prob_score(self, scores):
-        ax = np.matmul(scores, self.alpha)
-        with warnings.catch_warnings(): # to filter out the ugly exp overflow error
-            warnings.simplefilter("ignore")
-            return 1/(1+np.exp(ax))
+        return logreg_prob(scores, self.alpha)
 
     def cpu_copy(self):
 #        device = self.device # save the original device

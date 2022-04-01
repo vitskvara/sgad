@@ -2,6 +2,29 @@ import torch
 import numpy as np
 from torch import nn
 from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers, get_norm_layer
+from sklearn.linear_model import LogisticRegression
+import warnings
+
+def logreg_fit(X, y):
+    """
+        logreg_fit(X, y)
+
+        X must have shape (nsamples, nregressors). Fits with zero intercept. Returns coeffs and the solver.
+    """
+    clf = LogisticRegression(fit_intercept=False).fit(X, y)
+    alpha = clf.coef_[0]
+    return alpha.reshape(4), clf
+
+def logreg_prob(X, alpha):
+    """
+        logreg_prob(X, alpha)
+
+       X must have shape (nsamples, nregressors), alpha must have shape (nregressors,). 
+    """
+    ax = np.matmul(X, alpha)
+    with warnings.catch_warnings(): # to filter out the ugly exp overflow error
+        warnings.simplefilter("ignore")
+        return 1/(1+np.exp(ax))
 
 class Mean(nn.Module):
     def __init__(self, *args):
@@ -77,3 +100,4 @@ def all_nonequal_params(m1, m2):
 
 def get_float(t):
     return float(t.data.cpu().numpy())
+
