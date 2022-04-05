@@ -75,6 +75,22 @@ def load_wildlife_mnist_split(anomaly_class, seed=1, train=True, denormalize=Tru
         tst_x = tst_x*0.5 + 0.5
     return (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c)
 
+def load_cifar10_split(anomaly_class, seed=1, train=True):
+    path = datadir("raw_datasets/cifar10/training_splits")
+    ac = anomaly_class
+    if train:
+        tr_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_data.npy'))
+        tr_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_labels.npy'))
+
+        val_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_data.npy'))
+        val_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_labels.npy'))
+
+        tst_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_data.npy'))
+        tst_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_labels.npy'))
+    else:
+        raise ValueError("train=False not implemented")
+    return (tr_x, tr_y), (val_x, val_y), (tst_x, tst_y)
+
 def load_svhn2():
     path = datadir("raw_datasets/svhn2")
     data = np.load(os.path.join(path, "data.npy"))
