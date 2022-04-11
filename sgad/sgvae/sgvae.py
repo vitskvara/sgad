@@ -415,6 +415,22 @@ class SGVAE(nn.Module):
         encodings_b = self.vae_background.encode(x)
         encodings_f = self.vae_foreground.encode(x)
         return encodings_s, encodings_b, encodings_f
+
+    def encode_mean_batched(self, x, batch_size=None, workers=1):
+        """For given x, returns means in z space for all vaes in the model."""
+        loader = self._create_score_loader(x, batch_size=batch_size, workers=workers)
+        encodings = []   
+        for batch in loader:
+            x = batch['ims'].to(self.device)
+            encs = self.encode(x)
+            encs = [x[0].to("cpu").data.numpy() for x in encs]
+            encodings.append(score)
+
+        return (
+            np.concatenate([x[0] for x in encodings], 0), 
+            np.concatenate([x[1] for x in encodings], 0)
+            np.concatenate([x[2] for x in encodings], 0)
+            )
     
     def encoded(self, x):
         """For given x, returns samples in z space for all vaes in the model."""
@@ -422,6 +438,22 @@ class SGVAE(nn.Module):
         encodings_b = self.vae_background.encoded(x)
         encodings_f = self.vae_foreground.encoded(x)
         return encodings_s, encodings_b, encodings_f
+
+    def encoded_mean_batched(self, x, batch_size=None, workers=1):
+        """For given x, returns samples in z space for all vaes in the model."""
+        loader = self._create_score_loader(x, batch_size=batch_size, workers=workers)
+        encodings = []   
+        for batch in loader:
+            x = batch['ims'].to(self.device)
+            encs = self.encoded(x)
+            encs = [x.to("cpu").data.numpy() for x in encs]
+            encodings.append(score)
+
+        return (
+            np.concatenate([x[0] for x in encodings], 0), 
+            np.concatenate([x[1] for x in encodings], 0)
+            np.concatenate([x[2] for x in encodings], 0)
+            )
 
     def decode(self, zs):
         """For given set of z space encodings, returns means and logvars for all vaes."""
