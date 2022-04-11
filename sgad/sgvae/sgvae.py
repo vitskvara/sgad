@@ -428,7 +428,7 @@ class SGVAE(nn.Module):
 
         return (
             np.concatenate([x[0] for x in encodings], 0), 
-            np.concatenate([x[1] for x in encodings], 0)
+            np.concatenate([x[1] for x in encodings], 0),
             np.concatenate([x[2] for x in encodings], 0)
             )
     
@@ -451,7 +451,7 @@ class SGVAE(nn.Module):
 
         return (
             np.concatenate([x[0] for x in encodings], 0), 
-            np.concatenate([x[1] for x in encodings], 0)
+            np.concatenate([x[1] for x in encodings], 0),
             np.concatenate([x[2] for x in encodings], 0)
             )
 
