@@ -11,7 +11,7 @@ def logreg_fit(X, y):
 
         X must have shape (nsamples, nregressors). Fits with zero intercept. Returns coeffs and the solver.
     """
-    clf = LogisticRegression(fit_intercept=False).fit(X, y)
+    clf = LogisticRegression(fit_intercept=False, class_weight='balanced').fit(X, y)
     alpha = clf.coef_[0]
     return alpha.reshape(4), clf
 
@@ -72,7 +72,6 @@ def logpx(x, mu, std):
 
 def batched_score(scoref, loader, device, *args, **kwargs):
     scores = []
-    labels = []
     for batch in loader:
         x = batch['ims'].to(device)
         score = scoref(x, *args, **kwargs)
