@@ -56,8 +56,8 @@ class AlphaClassifier(nn.Module):
             tst_x = tst_x if tst_x is None else self.scaler_transform(tst_x)
             
         # oversample negative data
-        X = np.concatenate((x[y == 0].repeat(negative_p, 0), x[y == 0]), 0)
-        Y = np.concatenate((y[y == 0].repeat(negative_p, 0), y[y == 0]), 0)
+        X = np.concatenate((x[y == 0].repeat(negative_p, 0), x[y == 1]), 0)
+        Y = np.concatenate((y[y == 0].repeat(negative_p, 0), y[y == 1]), 0)
         
         loader = DataLoader(Subset(torch.tensor(X).float(), torch.Tensor(Y)), 
             batch_size=batch_size, 
