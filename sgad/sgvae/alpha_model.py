@@ -48,23 +48,34 @@ class AlphaClassifier(nn.Module):
     def save_weights(self, f):
         np.save(f, self.alpha_params.detach().numpy())
         
-    def fit(self, x, y, tst_x=None, tst_y=None, nepochs = 200, batch_size=256, lr=0.001, negative_p=1,
+    def fit(self, x, y, tst_x=None, tst_y=None, nepochs = 200, batch_size=256, lr=0.001,
             workers=1, balanced=True, verb=True, scale=False, early_stopping=False, patience=10):
         if scale:
             self.scaler_fit(x)
             x = self.scaler_transform(x)
             tst_x = tst_x if tst_x is None else self.scaler_transform(tst_x)
             
-        # oversample negative data
-        X = np.concatenate((x[y == 0].repeat(negative_p, 0), x[y == 1]), 0)
-        Y = np.concatenate((y[y == 0].repeat(negative_p, 0), y[y == 1]), 0)
+        # oversample the data so that they have the same number of samples
+        if balanced:
+            n1 = int(sum(y))
+            n0 = len(y) - n1
+            if n0 < n1:
+                p = int(np.floor(n1/n0))
+                X = np.concatenate((x[y == 0].repeat(p, 0), x[y == 1]), 0)
+                Y = np.concatenate((y[y == 0].repeat(p, 0), y[y == 1]), 0)
+            else:
+                p = int(np.floor(n0/n1))
+                X = np.concatenate((x[y == 1].repeat(p, 0), x[y == 0]), 0)
+                Y = np.concatenate((y[y == 1].repeat(p, 0), y[y == 0]), 0)
+        else:
+            X = x
+            Y = y
         
         loader = DataLoader(Subset(torch.tensor(X).float(), torch.Tensor(Y)), 
             batch_size=batch_size, 
             shuffle=True, 
             num_workers=workers)
-        p = (len(y)-sum(y))/sum(y) if balanced else 1.0
-        criterion = nn.BCEWithLogitsLoss(torch.Tensor([p]))
+        criterion = nn.BCEWithLogitsLoss()
         opt = torch.optim.Adam(self.parameters(), lr=lr)
         
         best_auc = self.auc(x, y)
