@@ -1,7 +1,6 @@
 from contextlib import redirect_stdout
 from yacs.config import CfgNode as CN
 import os, torch
-from sgad.cgn.models import CGNAnomaly
 
 def save_cfg(cfg, path):
     with open(path, 'w') as f:
@@ -57,7 +56,7 @@ def load_cgnanomaly(md, niter=None, device=None):
     """
     # first construct model with the saved params
     cf = os.path.join(md, "cfg.yaml")
-    model = construct_model(CGNAnomaly, cf)
+    model = construct_model(sgad.cgn.models.CGNAnomaly, cf)
     if device is not None:
         model.move_to(device)
     # then load weights and replace them
