@@ -75,5 +75,5 @@ def load_cgnanomaly(md, niter=None, device=None):
         cweights = torch.load(cf, map_location=torch.device(device))
         dweights = torch.load(df, map_location=torch.device(device))
     model.cgn.load_state_dict(cweights)
-    model.discirminator.load_state_dict(dweights)
+    model.discriminator.load_state_dict(dweights)
     return model
