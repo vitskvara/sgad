@@ -35,7 +35,8 @@ class CGNAnomaly(nn.Module):
                 lambdas_perc=[0.01, 0.05, 0.0, 0.01],
                 lr=0.0002,
                 betas=[0.5, 0.999],
-                device=None
+                device=None,
+                **kwargs
                 ):
 
         super(CGNAnomaly, self).__init__()
