@@ -1,6 +1,7 @@
 from contextlib import redirect_stdout
 from yacs.config import CfgNode as CN
 import os, torch
+import sgad
 
 def save_cfg(cfg, path):
     with open(path, 'w') as f:
