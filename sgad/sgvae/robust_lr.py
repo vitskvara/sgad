@@ -11,6 +11,8 @@ class RobustLogisticRegression(nn.Module):
     def __init__(self, beta=1.0, alpha0=[1.0,0.0,0.0,0.0]):
         super(RobustLogisticRegression, self).__init__()
         self.alpha = nn.Parameter(torch.Tensor(np.ones(4)))
+        if not len(alpha0) == 4:
+            raise ValueError('alpha0 must be a vector og length 4')
         self.alpha0 = torch.Tensor(alpha0)
         self.beta = beta
         self.scaler = StandardScaler()
