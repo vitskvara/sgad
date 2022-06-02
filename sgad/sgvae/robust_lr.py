@@ -54,7 +54,7 @@ class RobustLogisticRegression(nn.Module):
     def save_weights(self, f):
         np.save(f, self.alpha_params.detach().numpy())
                 
-    def fit(self, x, y, tst_x=None, tst_y=None, nepochs = 200, batch_size=256, lr=0.001,
+    def fit(self, x, y, tst_x=None, tst_y=None, nepochs = 2, batch_size=256, lr=0.01, opt_type="lbfgs",
             workers=1, balanced=True, verb=True, scale=False, early_stopping=False, patience=10):
         if scale:
             self.scaler_fit(x)
@@ -83,7 +83,15 @@ class RobustLogisticRegression(nn.Module):
             shuffle=True, 
             num_workers=workers)
         criterion = nn.BCEWithLogitsLoss()
-        opt = torch.optim.Adam(self.parameters(), lr=lr)
+        if opt_type == "lbfgs":
+            opt = torch.optim.LBFGS(self.parameters(), lr=lr)
+        elif opt_type == "adam":
+            opt = torch.optim.Adam(self.parameters(), lr=lr)
+            # override the default
+            if nepochs == 2:
+                nepochs = 200
+        else:
+            raise ValueError('opt_type must be lbfgs or adam')
         
         # setup stopping criterion
         best_auc = self.auc(x, y)
@@ -120,8 +128,19 @@ class RobustLogisticRegression(nn.Module):
             # training
             for batch in loader:
                 _x, _y = batch['ims'], batch['labels']
-                opt.zero_grad()
-                pred = self(_x)
-                loss = criterion(pred, _y) + self.prior_loss()
-                loss.backward()
-                opt.step()
+
+                def loss_closure():
+                    opt.zero_grad()
+                    pred = self(_x)
+                    loss = criterion(pred, _y) + self.prior_loss()
+                    loss.backward()
+                    return loss
+
+                if opt_type == "lbfgs":
+                    opt.step(loss_closure)
+                elif opt_type == "adam":
+                    loss_closure()
+                    opt.step()
+                else:
+                    raise ValueError('opt_type must be lbfgs or adam')
+
