@@ -144,3 +144,7 @@ class RobustLogisticRegression(nn.Module):
                 else:
                     raise ValueError('opt_type must be lbfgs or adam')
 
+        # check for bad values
+        if (abs(self.alpha.detach().numpy()) > 1e6):
+            raise RuntimeError('convergence failed')
+
