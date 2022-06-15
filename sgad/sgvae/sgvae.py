@@ -492,6 +492,18 @@ class SGVAE(nn.Module):
         mask, background, foreground = self.decode_image_components(zs)
         return self.compose_image(mask, background, foreground)
 
+    def mask(self, x):
+        """Extract the mask of x."""
+        return self.vae_shape.encode(x)[0]
+
+    def background(self, x):
+        """Extract the background of x."""
+        return self.vae_background.encode(x)[0]
+
+    def foreground(self, x):
+        """Extract the foreground of x."""
+        return self.vae_foreground.encode(x)[0]
+
     def forward(self, x):
         """Returns clamped mask, background, foreground."""
         if self.latent_structure == "independent":               
