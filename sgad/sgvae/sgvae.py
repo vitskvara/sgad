@@ -494,15 +494,30 @@ class SGVAE(nn.Module):
 
     def mask(self, x):
         """Extract the mask of x."""
-        return self.vae_shape.reconstruct_mean(x)
+        mask = self.vae_shape.reconstruct_mean(x)
+        return torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
 
     def background(self, x):
         """Extract the background of x."""
-        return self.vae_background.reconstruct_mean(x)
+        if self.latent_structure == "independent":               
+            return self.vae_background.reconstruct_mean(x)
+        elif self.latent_structure == "mask_dependent":
+            # first get the mask
+            mask = self.mask(x)
+            # now use this as input to the remaining vaes
+            z_b, kld_b = self._encode(self.vae_background, x * mask)
+            return self._decode(self.vae_background, z_b)
 
     def foreground(self, x):
         """Extract the foreground of x."""
-        return self.vae_foreground.reconstruct_mean(x)
+        if self.latent_structure == "independent":               
+            return self.vae_foreground.reconstruct_mean(x)
+        elif self.latent_structure == "mask_dependent":
+            # first get the mask
+            mask = self.mask(x)
+            # now use this as input to the remaining vaes
+            z_f, kld_f = self._encode(self.vae_foreground, x * mask)
+            return self._decode(self.vae_foreground, z_f)
 
     def forward(self, x):
         """Returns clamped mask, background, foreground."""
@@ -510,9 +525,7 @@ class SGVAE(nn.Module):
             return self.decode_image_components(self.encoded(x))
         elif self.latent_structure == "mask_dependent":
             # first get the mask
-            z_s, kld_s = self._encode(self.vae_shape, x)
-            mask = self._decode(self.vae_shape, z_s)
-            mask = torch.clamp(mask, 0.0001, 0.9999).repeat(1, self.config.img_channels, 1, 1)
+            mask = self.mask(x)
             
             # now mask the input
             x_m = x * mask        
