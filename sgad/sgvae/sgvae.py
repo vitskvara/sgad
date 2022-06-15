@@ -494,15 +494,15 @@ class SGVAE(nn.Module):
 
     def mask(self, x):
         """Extract the mask of x."""
-        return self.vae_shape.encode(x)[0]
+        return self.vae_shape.reconstruct_mean(x)
 
     def background(self, x):
         """Extract the background of x."""
-        return self.vae_background.encode(x)[0]
+        return self.vae_background.reconstruct_mean(x)
 
     def foreground(self, x):
         """Extract the foreground of x."""
-        return self.vae_foreground.encode(x)[0]
+        return self.vae_foreground.reconstruct_mean(x)
 
     def forward(self, x):
         """Returns clamped mask, background, foreground."""
