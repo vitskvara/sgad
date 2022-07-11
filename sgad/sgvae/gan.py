@@ -40,7 +40,7 @@ def feature_matching_loss(x, xg, discriminator, l):
     ht = discriminator[0:l](x)
     hg = discriminator[0:l](xg)
     return nn.MSELoss()(ht, hg)
-    
+
 class GAN(nn.Module):
     def __init__(self, 
                  z_dim=32, 
@@ -83,11 +83,10 @@ class GAN(nn.Module):
         self.alpha = alpha
         
         # init generator
+        self.out_channels = img_channels
         if gan_type == "texture":
-            self.out_channels = img_channels
             self.generator = TextureDecoder(z_dim, self.out_channels, h_channels, init_sz)
         if gan_type == "shape":
-            self.out_channels = 1
             self.generator = ShapeDecoder(z_dim, self.out_channels, h_channels, init_sz)
         
         # init discriminator
