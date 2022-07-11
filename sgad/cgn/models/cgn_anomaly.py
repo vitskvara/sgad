@@ -352,7 +352,7 @@ class CGNAnomaly(nn.Module):
         else:
             device = torch.device(device)
         
-        # push to device and train
+        # push to device
         self.device = device
         self.cgn = self.cgn.to(device)
         self.discriminator = self.discriminator.to(device)
