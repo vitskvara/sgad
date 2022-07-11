@@ -59,6 +59,18 @@ def TextureDecoder(z_dim, img_channels, h_channels, init_sz):
 def ShapeDecoder(z_dim, img_channels, h_channels, init_sz):
     return nn.Sequential(*shape_layers(z_dim, img_channels, h_channels, init_sz))
 
+def Discriminator(img_channels, h_channels, img_dim):
+    out_dim = img_dim // 8
+    lin_dim = h_channels*4*out_dim*out_dim
+    return nn.Sequential(
+                *ConvBlock(img_channels, h_channels),
+                *ConvBlock(h_channels, h_channels*2),
+                *ConvBlock(h_channels*2, h_channels*4),
+                Reshape(*(-1, lin_dim)),
+                nn.Linear(lin_dim, 1),
+                torch.sigmoid
+            )
+
 def rp_trick(mu, std):
     """Reparametrization trick via Normal distribution."""
     p = torch.distributions.Normal(mu, std)

@@ -126,12 +126,13 @@ class TestUtils(unittest.TestCase):
 class TestFitPredict(unittest.TestCase):
     def test_fit_predict_default(self):
         nc = 0
-        X = X_raw[y_raw == nc]
+        X = X_raw[y_raw == nc][:1000]
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], lambda_mask=0.3, weight_mask=240.0,
             weight_binary=100)
         losses_all, best_model, best_epoch = model.fit(X, 
             save_path=_tmp, 
-            n_epochs=1)
+            n_epochs=1,
+            workers=4)
 
         # test basic prediction
         model.eval()
@@ -140,15 +141,16 @@ class TestFitPredict(unittest.TestCase):
         yn = y_raw[y_raw == nc][:n]
         Xa = X_raw[y_raw != nc][:n]
         ya = y_raw[y_raw != nc][:n]
-        sn = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16)
+        sn = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16, workers=4)
         self.assertTrue(len(sn == n))
-        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal")
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", workers=4)
         self.assertTrue(len(sn == n))
         try:
-            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True,
+                workers=4)
         except Exception as e:
             self.assertTrue(type(e) is ValueError)
-        sa = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16)
+        sa = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16, workers=4)
         self.assertTrue(type(sa) is np.ndarray)
         self.assertTrue(sa.shape == (n,))
         
@@ -160,21 +162,22 @@ class TestFitPredict(unittest.TestCase):
         s = model.normal_latent_score(Xnt)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (3, n))
-        s = model.all_scores(Xn, score_type="logpx", latent_score_type="normal", batch_size=16)
+        s = model.all_scores(Xn, score_type="logpx", latent_score_type="normal", batch_size=16, workers=4)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (4, n))
 
         s = model.kld_score(Xnt)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (3, n))
-        s = model.all_scores(Xn, score_type="logpx", latent_score_type="kld", batch_size=16)
+        s = model.all_scores(Xn, score_type="logpx", latent_score_type="kld", batch_size=16, workers=4)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (4, n))
 
         s = model.normal_logpx_score(Xnt)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (3, n))
-        s = model.all_scores(Xn, score_type="logpx", latent_score_type="normal_logpx", batch_size=16)
+        s = model.all_scores(Xn, score_type="logpx", latent_score_type="normal_logpx", batch_size=16, 
+            workers=4)
         self.assertTrue(type(s) is np.ndarray)
         self.assertTrue(s.shape == (4, n))
        
@@ -183,12 +186,14 @@ class TestFitPredict(unittest.TestCase):
         yf = (y_raw[:1000] != nc).astype('int')
         self.assertTrue(model.alpha is None)
         self.assertTrue(model.alpha_score_type is None)
-        model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2)
+        model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2, workers=4)
         self.assertTrue(model.alpha is not None)
         self.assertTrue(model.alpha_score_type == "normal")
         self.assertTrue(len(model.alpha) == 4)
-        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
-        sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True, 
+            workers=4)
+        sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True, 
+            workers=4)
         s = np.concatenate((sn, sa))
         y = (np.concatenate((yn, ya)) != nc).astype('int')
         self.assertTrue(compute_auc(y, s) > 0.5)
@@ -196,18 +201,20 @@ class TestFitPredict(unittest.TestCase):
 
         # try the errors
         try:
-            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="kld", probability=True)
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="kld", probability=True, 
+                workers=4)
         except Exception as e:
             self.assertTrue(type(e) is ValueError)
         try:
-            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal_logpx", probability=True)
+            sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal_logpx", probability=True, 
+                workers=4)
         except Exception as e:
             self.assertTrue(type(e) is ValueError)
         
         # save/load alphas
         model.save_alpha("_alpha.npy")
         model.load_alpha("_alpha.npy")
-        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True)
+        sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True, workers=4)
         
         os.remove("_alpha.npy")
         shutil.rmtree(_tmp)
@@ -215,7 +222,7 @@ class TestFitPredict(unittest.TestCase):
 class TestParams(unittest.TestCase):
     def test_params(self):
         nc = 0
-        X = X_raw[y_raw == nc]
+        X = X_raw[y_raw == nc][:1000]
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
         _model = copy.deepcopy(model)
         # are all the parts equal in terms of trainable params?
@@ -234,7 +241,8 @@ class TestParams(unittest.TestCase):
         _model = copy.deepcopy(model)
         model.fit(X,
             n_epochs=1, 
-            verb=True
+            verb=True, 
+            workers=4
            )
         # check the equality of params
         self.assertTrue(not all_equal_params(model, _model))
