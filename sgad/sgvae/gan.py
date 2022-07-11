@@ -17,6 +17,30 @@ import os, sys
 from sgad.sgvae.utils import TextureDecoder, ShapeDecoder, Discriminator
 from sgad.utils import save_cfg, Optimizers, Subset
 
+def generator_loss(sg):
+    """
+    generator_loss(scores_generated)
+    
+    mean(log(sg)) = E[log(D(G(z)))]
+    """
+    return - torch.mean(torch.log(sg) + 1e-8)
+
+def discriminator_loss(st, sg):
+    """
+    discriminator_loss(scores_true, scores_generated)
+    
+    mean(log(st)) + mean(log(1-sg))  = E[log(D(x)) + (log(1-D(G(z))))]
+    """
+    return - (torch.mean(torch.log(st + 1e-8)) + torch.mean(torch.log(1 - sg) + 1e-8))
+
+def feature_matching_loss(x, xg, discriminator, l):
+    """
+    Feature-matching loss at the l-th layer of discriminator.
+    """
+    ht = discriminator[0:l](x)
+    hg = discriminator[0:l](xg)
+    return nn.MSELoss()(ht, hg)
+    
 class GAN(nn.Module):
     def __init__(self, 
                  z_dim=32, 
