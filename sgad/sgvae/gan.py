@@ -15,7 +15,7 @@ import random
 import os, sys
 
 from sgad.sgvae.utils import TextureDecoder, ShapeDecoder, Discriminator
-from sgad.utils import save_cfg, Optimizers, Subset
+from sgad.utils import save_cfg, Optimizers, Subset, compute_auc
 
 def generator_loss(sg):
     """
@@ -254,10 +254,28 @@ class GAN(nn.Module):
 
         return losses_all, best_model, best_epoch
 
+    def _create_score_loader(self, X, batch_size=None, workers=1):
+        # create the loader
+        if batch_size is None:
+            batch_size = self.config.batch_size
+        y = torch.zeros(X.shape[0]).long()
+        loader = DataLoader(Subset(torch.tensor(X).float(), y), 
+            batch_size=batch_size, 
+            shuffle=False, 
+            num_workers=workers)
+        return loader
+
+    def predict(self, X, workers=12, batch_size=None, **kwargs):
+        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
+
     def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
         z = p.sample().to(self.device)
         return self.generator(z)
+
+    def discriminate(self, x):
+        return self.discriminator(x)
 
     def num_params(self):
         s = 0
