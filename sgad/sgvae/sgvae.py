@@ -326,7 +326,7 @@ class SGVAE(nn.Module):
 
         return l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f
 
-    def setup_paths(self, save_path, save_weights, n_epochs, save_iter, workers):
+    def setup_paths(self, save_path, save_weights, n_epochs, save_iter, workers, cfg=self.config):
         print(f'Creating save path {save_path}.')
         model_path = Path(save_path)
         weights_path = model_path / 'weights'
@@ -338,7 +338,7 @@ class SGVAE(nn.Module):
         sample_path.mkdir(parents=True, exist_ok=True)
 
         # dump config
-        cfg = copy.deepcopy(self.config)
+        cfg = copy.deepcopy(cfg)
         cfg.n_epochs = n_epochs
         cfg.save_iter = save_iter
         cfg.save_path = save_path

@@ -10,6 +10,9 @@ class Optimizers():
     def set(self, k, model, lr=3e-3, betas=(0.9, 0.999)):
         self._modules[k] = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
 
+    def add_params(self, k, params):
+        self._modules[k].add_param_group(params)
+
     def step(self, k_list=[], zero=True):
         if not k_list: k_list = self._modules.keys()
         for k in k_list:

@@ -149,9 +149,9 @@ class GAN(nn.Module):
         losses_all = {'iter': [], 'epoch': [], 'discloss': [], 'genloss': [], 'fmloss': [], 'auc_val': []}
 
         # setup save paths
-        if save_results and save_path == None:
-            raise ValueError('If you want to save results, provide the save_path argument.')   
-        if save_results:
+        
+        if save_path is not None:
+            save_results = True
             model_path = Path(save_path)
             weights_path = model_path / 'weights'
             sample_path = model_path / 'samples'
@@ -168,6 +168,8 @@ class GAN(nn.Module):
 
             # samples for reconstruction
             x_sample = X[random.sample(range(X.shape[0]), 30),:,:,:]
+        else:
+            save_results = False
 
         pbar = tqdm(range(n_epochs))
         niter = 0
