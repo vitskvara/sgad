@@ -23,7 +23,7 @@ def generator_loss(sg):
     
     mean(log(sg)) = E[log(D(G(z)))]
     """
-    return - torch.mean(torch.log(sg) + 1e-8)
+    return - torch.mean(torch.log(sg + 1e-8))
 
 def discriminator_loss(st, sg):
     """
@@ -31,7 +31,7 @@ def discriminator_loss(st, sg):
     
     mean(log(st)) + mean(log(1-sg))  = E[log(D(x)) + (log(1-D(G(z))))]
     """
-    return - (torch.mean(torch.log(st + 1e-8)) + torch.mean(torch.log(1 - sg) + 1e-8))
+    return - torch.mean(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8))
 
 def feature_matching_loss(x, xg, discriminator, l):
     """
