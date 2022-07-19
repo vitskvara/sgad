@@ -39,7 +39,7 @@ def feature_matching_loss(x, xg, discriminator, l):
     """
     ht = discriminator[0:l](x)
     hg = discriminator[0:l](xg)
-    return nn.MSELoss()(ht, hg)
+    return nn.MSELoss(reduction='none')(ht, hg).sum((1,2,3))
 
 class GAN(nn.Module):
     def __init__(self, 
@@ -184,7 +184,7 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['generator'])
                 sg = self.discriminator(xg)
                 fml = feature_matching_loss(xt, xg, self.discriminator, self.fm_depth)
-                gl = generator_loss(sg) + self.alpha*fml
+                gl = generator_loss(sg) + self.alpha*torch.mean(fml)
                 gl.backward()
                 self.opts.step(['generator'], False)
 
