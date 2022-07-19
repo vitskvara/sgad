@@ -16,13 +16,13 @@ def UpsampleBlock(cin, cout, scale_factor=2):
         nn.Upsample(scale_factor=scale_factor),
         nn.Conv2d(cin, cout, 3, stride=1, padding=1, bias=False),
         nn.BatchNorm2d(cout),
-        nn.LeakyReLU(0.2, inplace=True),
+        nn.LeakyReLU(0.2),
     ]
 
 def lin_block(in_feat, out_feat, normalize=True):
     layers = [nn.Linear(in_feat, out_feat)]
     layers.append(nn.BatchNorm1d(out_feat, 0.8))
-    layers.append(nn.LeakyReLU(0.2, inplace=True))
+    layers.append(nn.LeakyReLU(0.2))
     return layers
 
 def shape_layers(cin, cout, ngf, init_sz):

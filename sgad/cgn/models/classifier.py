@@ -20,14 +20,14 @@ class CNN(nn.Module):
         self.model = nn.Sequential(
             nn.BatchNorm2d(in_channels),
             nn.Conv2d(in_channels, 32, kernel_size=5, stride=1, padding=2),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.AvgPool2d(7),
             Flatten(),
         )

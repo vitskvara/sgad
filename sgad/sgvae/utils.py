@@ -38,7 +38,7 @@ def ConvBlock(in_channels, out_channels):
     return [
         nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
         nn.BatchNorm2d(out_channels),
-        nn.LeakyReLU(0.2, inplace=True),
+        nn.LeakyReLU(0.2),
     ]
 
 def Encoder(z_dim, img_channels, h_channels, img_dim):
@@ -50,7 +50,7 @@ def Encoder(z_dim, img_channels, h_channels, img_dim):
                 *ConvBlock(h_channels*2, h_channels*4),
                 Reshape(*(-1, lin_dim)),
                 nn.Linear(lin_dim, z_dim*2),
-                nn.LeakyReLU(0.2, inplace=True)
+                nn.LeakyReLU(0.2)
             )
 
 def TextureDecoder(z_dim, img_channels, h_channels, init_sz):

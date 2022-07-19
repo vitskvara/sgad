@@ -12,13 +12,13 @@ class DiscLin(nn.Module):
 
         self.model = nn.Sequential(
             nn.Linear(n_classes + int(np.prod(img_shape)), ndf),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf),
             nn.Dropout(0.4),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf),
             nn.Dropout(0.4),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2),
             nn.Linear(ndf, 1),
         )
 
