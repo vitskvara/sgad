@@ -159,6 +159,7 @@ class VAEGAN(nn.Module):
         self.train()
         pbar = tqdm(range(n_epochs))
         niter = 0
+        start_time = time.time()
         for epoch in pbar:
             for i, data in enumerate(tr_loader):
                 x = data['ims'].to(self.device)
