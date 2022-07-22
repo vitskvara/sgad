@@ -125,7 +125,7 @@ class VAEGAN(nn.Module):
             save_path=None, 
             workers=1,
             max_train_time=np.inf # in seconds           
-           )
+           ):
 
         """Fit the model given data X.
 
