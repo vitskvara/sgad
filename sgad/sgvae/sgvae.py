@@ -180,6 +180,7 @@ class SGVAE(nn.Module):
                     loss_values = self.train_step_mask_dependent(batch, iepoch)
                 
                 # collect losses
+                niter += 1
                 self.log_losses(losses_all, niter, epoch, auc_val, *loss_values)
 
                 # output
@@ -351,7 +352,6 @@ class SGVAE(nn.Module):
         
     def log_losses(self, losses_all, niter, epoch, auc_val, l, elbo, kld, lpx, bin_l, mask_l, text_l,
                      kld_s, kld_b, kld_f):
-        niter += 1
         losses_all['iter'].append(niter)
         losses_all['epoch'].append(epoch)
         losses_all['loss'].append(get_float(l))

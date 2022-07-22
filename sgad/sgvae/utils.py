@@ -69,7 +69,7 @@ def Discriminator(img_channels, h_channels, img_dim):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
     return nn.Sequential(
-                # this has to be liek this otherwise there are problems with the fm loss
+                # this has to be like this otherwise there are problems with the fm loss
                 *ConvBlock(img_channels, h_channels, bn=False, bias=True),
                 *ConvBlock(h_channels, h_channels*2),
                 *ConvBlock(h_channels*2, h_channels*4),
