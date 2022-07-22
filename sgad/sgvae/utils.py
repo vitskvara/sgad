@@ -34,12 +34,11 @@ class Mean(nn.Module):
     def forward(self, x):
         return x.mean(self.shape) 
 
-def ConvBlock(in_channels, out_channels):
-    return [
-        nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.LeakyReLU(0.2),
-    ]
+def ConvBlock(in_channels, out_channels, bn=True):
+    res =  [nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1, bias=False)]
+    res.append(nn.BatchNorm2d(out_channels)) if bn else None
+    res.append(nn.LeakyReLU(0.2))
+    return res
 
 def Encoder(z_dim, img_channels, h_channels, img_dim):
     out_dim = img_dim // 8
@@ -66,11 +65,11 @@ class Sigmoid(nn.Module):
     def forward(self, x):
         return torch.sigmoid(x)
 
-def Discriminator(img_channels, h_channels, img_dim):
+def Discriminator(img_channels, h_channels, img_dim, first_bn=True):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
     return nn.Sequential(
-                *ConvBlock(img_channels, h_channels),
+                *ConvBlock(img_channels, h_channels, bn=first_bn),
                 *ConvBlock(h_channels, h_channels*2),
                 *ConvBlock(h_channels*2, h_channels*4),
                 Reshape(*(-1, lin_dim)),
