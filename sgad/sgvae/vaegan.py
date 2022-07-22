@@ -152,6 +152,10 @@ class VAEGAN(nn.Module):
         else:
             save_results = False
 
+        # loss logging
+        losses_all = {'iter': [], 'epoch': [], 'encl': [], 'decl': [], 'discl': [], 'kld': [], 'genl': [],
+             'fml': [], 'xmax': []}
+
         self.train()
         pbar = tqdm(range(n_epochs))
         niter = 0
