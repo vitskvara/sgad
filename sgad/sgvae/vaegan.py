@@ -170,7 +170,7 @@ class VAEGAN(nn.Module):
 
                 # output
                 if verb:                
-                    self.print_output(pbar, tr_loader, *loss_vals)
+                    self.print_output(pbar, i, tr_loader, *loss_vals)
 
                 # saving weights and sample images
                 batches_done = epoch * len(tr_loader) + i
@@ -254,7 +254,7 @@ class VAEGAN(nn.Module):
         losses_all['fml'].append(get_float(fml))
         losses_all['xmax'].append(get_float(xmax))
 
-    def print_output(self, pbar, tr_loader, el, decl, dl, kld, gl, fml, xmax):
+    def print_output(self, pbar, i, tr_loader, el, decl, dl, kld, gl, fml, xmax):
         msg = f"[Batch {i}/{len(tr_loader)}]"
         msg += ''.join(f"[enc: {get_val(el):.3f}]")
         msg += ''.join(f"[dec: {get_val(decl):.3f}]")
