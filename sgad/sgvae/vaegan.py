@@ -17,7 +17,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE, feature_matching_loss
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
-from sgad.sgvae.utils import Discriminator
+from sgad.sgvae.utils import Discriminator, get_float
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -256,12 +256,12 @@ class VAEGAN(nn.Module):
 
     def print_output(self, pbar, i, tr_loader, el, decl, dl, kld, gl, fml, xmax):
         msg = f"[Batch {i}/{len(tr_loader)}]"
-        msg += ''.join(f"[enc: {get_val(el):.3f}]")
-        msg += ''.join(f"[dec: {get_val(decl):.3f}]")
-        msg += ''.join(f"[disc: {get_val(dl):.3f}]")
-        msg += ''.join(f"[kld: {get_val(kld):.3f}]")
-        msg += ''.join(f"[gen: {get_val(gl):.3f}]")
-        msg += ''.join(f"[fml: {get_val(fml):.3f}]")
+        msg += ''.join(f"[enc: {get_float(el):.3f}]")
+        msg += ''.join(f"[dec: {get_float(decl):.3f}]")
+        msg += ''.join(f"[disc: {get_float(dl):.3f}]")
+        msg += ''.join(f"[kld: {get_float(kld):.3f}]")
+        msg += ''.join(f"[gen: {get_float(gl):.3f}]")
+        msg += ''.join(f"[fml: {get_float(fml):.3f}]")
         pbar.set_description(msg)
 
     def reconstruct(self, x):
