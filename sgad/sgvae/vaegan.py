@@ -311,6 +311,7 @@ class VAEGAN(nn.Module):
         x_gen = torch.concat(x_gen, 0)
         _x = torch.tensor(x).to(self.device).float()
         x_reconstructed = self.reconstruct(_x).to('cpu')
+        _x = _x.to('cpu')
 
         def save(x, path, n_cols, sz=64):
             x = F.interpolate(x, (sz, sz))
