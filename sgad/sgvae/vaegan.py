@@ -305,7 +305,7 @@ class VAEGAN(nn.Module):
 
     def feature_matching_score(self, X, fm_depth=None, workers=1, batch_size=None, **kwargs):
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
-        return batched_score(self._fm_score, loader, self.device, **kwargs)
+        return batched_score(self.fm_score, loader, self.device, **kwargs)
     
     def predict(self, X, score_type="discriminator", **kwargs):
         if score_type == "discriminator":
