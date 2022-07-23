@@ -293,7 +293,7 @@ class VAEGAN(nn.Module):
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
         return batched_score(self.reconstruction_error, loader, self.device, **kwargs)
     
-    def fm_score(self, X, n=1, fm_depth=None)
+    def fm_score(self, X, n=1, fm_depth=None):
         if fm_depth is None:
             fm_depth = self.config.fm_depth
         scores = []
