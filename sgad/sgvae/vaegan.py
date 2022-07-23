@@ -281,20 +281,31 @@ class VAEGAN(nn.Module):
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
         return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
     
-    def reconstruction_error(self, x):
-        rx = self.vae.reconstruct_mean(x)
-        return nn.MSELoss(reduction='none')(rx, x).sum((1,2,3)).detach().cpu().numpy()
+    def reconstruction_error(self, x, n=1):
+        scores = []
+        for i in range(n):
+            rx = self.vae.reconstruct_mean(x)
+            scores.append(nn.MSELoss(reduction='none')(rx, x).sum((1,2,3)).detach().cpu().numpy())
+
+        return np.mean(scores, 0) 
         
     def reconstruction_score(self, X, workers=1, batch_size=None, **kwargs):
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
         return batched_score(self.reconstruction_error, loader, self.device, **kwargs)
     
-    def feature_matching_score(self, X, fm_depth=None, workers=1, batch_size=None, **kwargs):
+    def fm_score(self, X, n=1, fm_depth=None)
         if fm_depth is None:
             fm_depth = self.config.fm_depth
+        scores = []
+        for i in range(n):
+            fml = feature_matching_loss(x, self.vae.reconstruct_mean(x), self.discriminator, fm_depth)
+            scores.append(fml.detach().cpu().numpy())
+
+        return np.mean(scores, 0)
+
+    def feature_matching_score(self, X, fm_depth=None, workers=1, batch_size=None, **kwargs):
         loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
-        return batched_score(lambda x: feature_matching_loss(x, self.vae.reconstruct_mean(x), 
-            self.discriminator, fm_depth).detach().cpu().numpy(), loader, self.device, **kwargs)
+        return batched_score(self._fm_score, loader, self.device, **kwargs)
     
     def predict(self, X, score_type="discriminator", **kwargs):
         if score_type == "discriminator":
