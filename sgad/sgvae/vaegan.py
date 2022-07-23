@@ -296,6 +296,16 @@ class VAEGAN(nn.Module):
         return batched_score(lambda x: feature_matching_loss(x, self.vae.reconstruct_mean(x), 
             self.discriminator, fm_depth).detach().cpu().numpy(), loader, self.device, **kwargs)
     
+    def predict(self, X, score_type="discriminator", **kwargs):
+        if score_type == "discriminator":
+            return self.discriminator_score(X, **kwargs)
+        elif score_type == "feature_matching":
+            return self.feature_matching_score(X, **kwargs)
+        elif score_type == "reconstruction":
+            return self.reconstruction_score(X, **kwargs)
+        else:
+            raise ValueError(f"Unknown score type {score_type}")
+
     def num_params(self):
         s = 0
         for p in self.parameters():
