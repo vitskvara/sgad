@@ -43,6 +43,7 @@ class VAEGAN(nn.Module):
     kwargs = 
         fm_alpha=0.0,
         fm_depth=7,
+        input_range=[0,1],
         z_dim=32, 
         h_channels=32, 
         img_dim=32, 
@@ -194,7 +195,7 @@ class VAEGAN(nn.Module):
                 print("Given runtime exceeded, ending training prematurely.")
                 break
 
-        return losses_all
+        return losses_all, None, None
 
     def update_step(self, x):
         ### encoder block ###
