@@ -316,12 +316,12 @@ class SGVAEGAN(nn.Module):
 
     def print_progress(self, pbar, i, nsteps, el, decl, dl, kld, gl, fml, bin_l, mask_l, text_l, *args):
         msg = f"[Batch {i}/{nsteps}]"
-        msg += ''.join(f"[enc: {get_val(el):.3f}]")
-        msg += ''.join(f"[dec: {get_val(decl):.3f}]")
-        msg += ''.join(f"[disc: {get_val(dl):.3f}]")
-        msg += ''.join(f"[kld: {get_val(kld):.3f}]")
-        msg += ''.join(f"[gen: {get_val(gl):.3f}]")
-        msg += ''.join(f"[fml: {get_val(fml):.3f}]")
+        msg += ''.join(f"[enc: {get_float(el):.3f}]")
+        msg += ''.join(f"[dec: {get_float(decl):.3f}]")
+        msg += ''.join(f"[disc: {get_float(dl):.3f}]")
+        msg += ''.join(f"[kld: {get_float(kld):.3f}]")
+        msg += ''.join(f"[gen: {get_float(gl):.3f}]")
+        msg += ''.join(f"[fml: {get_float(fml):.3f}]")
         msg += ''.join(f"[binary: {get_float(bin_l):.3f}]")
         msg += ''.join(f"[mask: {get_float(mask_l):.3f}]")
         msg += ''.join(f"[texture: {get_float(text_l):.3f}]")
