@@ -239,7 +239,10 @@ class SGVAEGAN(nn.Module):
         z_s, kld_s = self.sgvae._encode(self.sgvae.vae_shape, x)
         z_b, kld_b = self.sgvae._encode(self.sgvae.vae_background, x)
         z_f, kld_f = self.sgvae._encode(self.sgvae.vae_foreground, x)
-        kld = torch.mean(kld_s) + torch.mean(kld_b) + torch.mean(kld_f)
+        kld_s = torch.mean(kld_s)
+        kld_b = torch.mean(kld_b)
+        kld_f = torch.mean(kld_f)
+        kld = kld_s + kld_b + kld_f
 
         # get the common stuff - unfortunatelly I did not figure out how to only compute this once
         # both for encoder and decoder pass
