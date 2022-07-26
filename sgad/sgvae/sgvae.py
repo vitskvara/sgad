@@ -17,6 +17,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
+from sgad.sgvae.utils import create_score_loader
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -36,7 +37,7 @@ class SGVAE(nn.Module):
         log_var_x_estimate_top = "global",
         alpha = None,
         latent_structure="independent",
-        fixed_mask_epochs=0,
+        fixed_mask_epochs=1,
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -54,7 +55,7 @@ class SGVAE(nn.Module):
             std_approx="exp", 
             device=None, 
             latent_structure="independent", 
-            fixed_mask_epochs=0,
+            fixed_mask_epochs=1,
             log_var_x_estimate_top = "global",
             alpha = None, # or any numpy vector
             **kwargs):
@@ -420,7 +421,8 @@ class SGVAE(nn.Module):
 
     def encode_mean_batched(self, x, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        loader = self._create_score_loader(x, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
         encodings = []   
         for batch in loader:
             x = batch['ims'].to(self.device)
@@ -443,7 +445,9 @@ class SGVAE(nn.Module):
 
     def encoded_batched(self, x, batch_size=None, workers=1):
         """For given x, returns samples in z space for all vaes in the model."""
-        loader = self._create_score_loader(x, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False):
+ 
         encodings = []   
         for batch in loader:
             x = batch['ims'].to(self.device)
@@ -636,7 +640,8 @@ class SGVAE(nn.Module):
                 the score type used to fit the alphas ({self.alpha_score_type})')
 
         # create the dataloader
-        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
 
         # get the scores
         basic_score = self._basic_score(loader, score_type, *args, **kwargs)
@@ -657,7 +662,8 @@ class SGVAE(nn.Module):
         latent_score_type is one of ["normal", "kld", "normal_logpx"]
         """
         # create the dataloader
-        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
         
         # get the scores
         basic_score = self._basic_score(loader, score_type, *args, **kwargs)
@@ -666,17 +672,6 @@ class SGVAE(nn.Module):
         latent_score = self._latent_score(loader, latent_score_type, *args, **kwargs)
 
         return np.concatenate((basic_score.reshape(1,-1), latent_score))
-
-    def _create_score_loader(self, X, batch_size=None, workers=1):
-        # create the loader
-        if batch_size is None:
-            batch_size = self.config.batch_size
-        y = torch.zeros(X.shape[0]).long()
-        loader = DataLoader(Subset(torch.tensor(X).float(), y), 
-            batch_size=batch_size, 
-            shuffle=False, 
-            num_workers=workers)
-        return loader
 
     def _basic_score(self, loader, score_type, *args, **kwargs):
         if score_type == "logpx":

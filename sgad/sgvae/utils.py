@@ -98,6 +98,15 @@ def batched_score(scoref, loader, device, *args, **kwargs):
 
     return np.concatenate(scores, -1)
 
+def create_score_loader(X, batch_size, workers=1, shuffle=False):
+    # create the loader
+    y = torch.zeros(X.shape[0]).long()
+    loader = DataLoader(Subset(torch.tensor(X).float(), y), 
+        batch_size=batch_size, 
+        shuffle=shuffle, 
+        num_workers=workers)
+    return loader
+
 def all_equal_params(m1, m2):
     """Returns True if all parameters of the two models are the same (does not check for device)."""
     ps = m1.parameters()

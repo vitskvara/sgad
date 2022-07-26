@@ -17,7 +17,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE, feature_matching_loss
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
-from sgad.sgvae.utils import Discriminator, get_float
+from sgad.sgvae.utils import Discriminator, get_float, create_score_loader
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -266,20 +266,24 @@ class VAEGAN(nn.Module):
         msg += ''.join(f"[fml: {get_float(fml):.3f}]")
         pbar.set_description(msg)
 
+    def clamp(self, x):
+        return torch.clamp(x, self.input_range[0], self.input_range[1])
+
     def reconstruct(self, x):
-        return torch.clamp(self.vae.reconstruct_mean(x), self.input_range[0], self.input_range[1])
+        return self.clamp(self.vae.reconstruct_mean(x))
 
     def decode(self, z):
-        return torch.clamp(self.vae.decode(z)[0], self.input_range[0], self.input_range[1])
+        return self.clamp(self.vae.decode(z)[0])
 
-    def generate(self, x):
-        return torch.clamp(self.vae.generate_mean(x), self.input_range[0], self.input_range[1])
+    def generate(self, n):
+        return self.clamp(self.vae.generate_mean(n))
 
     def discriminate(self, x):
         return self.discriminator(x).reshape(-1).detach().cpu().numpy()
 
     def discriminator_score(self, X, workers=1, batch_size=None, **kwargs):
-        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
         return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
     
     def reconstruction_error(self, x, n=1):
@@ -291,7 +295,8 @@ class VAEGAN(nn.Module):
         return np.mean(scores, 0) 
         
     def reconstruction_score(self, X, workers=1, batch_size=None, **kwargs):
-        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
         return batched_score(self.reconstruction_error, loader, self.device, **kwargs)
     
     def fm_score(self, x, n=1, fm_depth=None):
@@ -305,7 +310,8 @@ class VAEGAN(nn.Module):
         return np.mean(scores, 0)
 
     def feature_matching_score(self, X, fm_depth=None, workers=1, batch_size=None, **kwargs):
-        loader = self._create_score_loader(X, batch_size=batch_size, workers=workers)
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+            workers=workers, shuffle=False)
         return batched_score(self.fm_score, loader, self.device, **kwargs)
     
     def predict(self, X, score_type="discriminator", **kwargs):
@@ -377,15 +383,3 @@ class VAEGAN(nn.Module):
         self.vae.move_to(device)
         self.discriminator = self.discriminator.to(device)
         self = self.to(device)
-        
-    def _create_score_loader(self, X, batch_size=None, workers=1):
-        # create the loader
-        if batch_size is None:
-            batch_size = self.config.batch_size
-        y = torch.zeros(X.shape[0]).long()
-        loader = DataLoader(Subset(torch.tensor(X).float(), y), 
-            batch_size=batch_size, 
-            shuffle=False, 
-            num_workers=workers)
-        return loader
-    
