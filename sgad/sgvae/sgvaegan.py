@@ -139,7 +139,7 @@ class SGVAEGAN(nn.Module):
         Returns (losses_all, None, None).
         """
         # setup the dataloader
-        y = torch.zeros(X.shape[0]).long() if y is None else y
+        y = torch.zeros(X.shape[0]).long()
         tr_loader = DataLoader(Subset(torch.tensor(X).float(), y), 
             batch_size=self.config.batch_size, 
             shuffle=True, 
