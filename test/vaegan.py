@@ -35,7 +35,7 @@ class TestAll(unittest.TestCase):
         self.assertTrue(_x.shape[0] == n)
         self.assertTrue(_x.shape == x.shape)
         # reconstrut
-        _x = model.reconstruct(n)
+        _x = model.reconstruct(x)
         self.assertTrue(_x.shape[0] == n)
         self.assertTrue(_x.shape == x.shape)
         
