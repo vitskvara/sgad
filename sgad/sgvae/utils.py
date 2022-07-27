@@ -2,10 +2,12 @@ import torch
 import numpy as np
 from torch import nn
 from torch.utils.data import DataLoader
-from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
-from sgad.cgn.models.cgn import get_norm_layer
 from sklearn.linear_model import LogisticRegression
 import warnings
+
+from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
+from sgad.cgn.models.cgn import get_norm_layer
+from sgad.utils import Subset
 
 def logreg_fit(X, y):
     """
