@@ -240,7 +240,7 @@ class TestParams(unittest.TestCase):
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
         _model = copy.deepcopy(model)
         model.fit(X,
-            n_epochs=1, 
+            n_epochs=2, 
             verb=True, 
             workers=4
            )
