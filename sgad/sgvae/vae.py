@@ -55,7 +55,6 @@ class VAE(nn.Module):
             torch.random.manual_seed(init_seed)
         
         # params
-        self.batch_size = batch_size
         self.z_dim = z_dim
         self.img_dim = img_dim
         self.img_channels = img_channels

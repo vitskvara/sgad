@@ -282,7 +282,7 @@ class VAEGAN(nn.Module):
         return self.discriminator(x).reshape(-1).detach().cpu().numpy()
 
     def discriminator_score(self, X, workers=1, batch_size=None, **kwargs):
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
     
@@ -295,7 +295,7 @@ class VAEGAN(nn.Module):
         return np.mean(scores, 0) 
         
     def reconstruction_score(self, X, workers=1, batch_size=None, **kwargs):
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         return batched_score(self.reconstruction_error, loader, self.device, **kwargs)
     
@@ -310,7 +310,7 @@ class VAEGAN(nn.Module):
         return np.mean(scores, 0)
 
     def feature_matching_score(self, X, fm_depth=None, workers=1, batch_size=None, **kwargs):
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         return batched_score(self.fm_score, loader, self.device, **kwargs)
     

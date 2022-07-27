@@ -74,7 +74,6 @@ class GAN(nn.Module):
             torch.random.manual_seed(init_seed)
         
         # params
-        self.batch_size = batch_size
         self.z_dim = z_dim
         self.fm_depth = fm_depth
         self.img_dim = img_dim
@@ -257,7 +256,7 @@ class GAN(nn.Module):
         return losses_all, best_model, best_epoch
 
     def predict(self, X, workers=12, batch_size=None, **kwargs):
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
 

@@ -421,7 +421,7 @@ class SGVAE(nn.Module):
 
     def encode_mean_batched(self, x, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         encodings = []   
         for batch in loader:
@@ -445,7 +445,7 @@ class SGVAE(nn.Module):
 
     def encoded_batched(self, x, batch_size=None, workers=1):
         """For given x, returns samples in z space for all vaes in the model."""
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
  
         encodings = []   
@@ -640,7 +640,7 @@ class SGVAE(nn.Module):
                 the score type used to fit the alphas ({self.alpha_score_type})')
 
         # create the dataloader
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
 
         # get the scores
@@ -662,7 +662,7 @@ class SGVAE(nn.Module):
         latent_score_type is one of ["normal", "kld", "normal_logpx"]
         """
         # create the dataloader
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.batch_size, 
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         
         # get the scores
