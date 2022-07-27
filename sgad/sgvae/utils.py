@@ -1,7 +1,9 @@
 import torch
 import numpy as np
 from torch import nn
-from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers, get_norm_layer
+from torch.utils.data import DataLoader
+from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
+from sgad.cgn.models.cgn import get_norm_layer
 from sklearn.linear_model import LogisticRegression
 import warnings
 
