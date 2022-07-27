@@ -228,7 +228,7 @@ class VAE(nn.Module):
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
                         self.save_sample_images(x_sample, sample_path, batches_done, n_cols=3)
-                        self.save_weights(f"{weights_path}/vae_{batches_done:d}.pth")
+                        self.save_weights(f"{weights_path}/{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
 

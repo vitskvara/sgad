@@ -195,7 +195,7 @@ class SGVAEGAN(nn.Module):
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
                         if save_weights:
-                           self.save_weights(f"{weights_path}/sgvae_{batches_done:d}.pth")
+                           self.save_weights(f"{weights_path}/{batches_done:d}.pth")
 
                 # exit if running for too long
                 run_time = time.time() - start_time
