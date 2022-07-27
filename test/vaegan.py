@@ -57,14 +57,13 @@ class TestAll(unittest.TestCase):
         self.assertTrue(os.path.isdir(_tmp))
         self.assertTrue(os.path.isfile(os.path.join(_tmp, "cfg.yaml")))
         self.assertTrue(os.path.isfile(os.path.join(_tmp, "losses.csv")))
-		self.assertTrue(os.path.isdir(os.path.join(_tmp, "weights")))
-		self.assertTrue(os.path.isdir(os.path.join(_tmp, "samples")))
-		self.assertTrue(len(os.listdir(os.path.join(_tmp, "weights"))) > 0)
-		self.assertTrue(len(os.listdir(os.path.join(_tmp, "samples"))) > 0)
+        self.assertTrue(os.path.isdir(os.path.join(_tmp, "weights")))
+        self.assertTrue(os.path.isdir(os.path.join(_tmp, "samples")))
+        self.assertTrue(len(os.listdir(os.path.join(_tmp, "weights"))) > 0)
+        self.assertTrue(len(os.listdir(os.path.join(_tmp, "samples"))) > 0)
 
-		# model loading
+        # model loading
         model_new = load_model(VAEGAN, _tmp)
         self.assertTrue(model.config == model_new.config)
         all_equal_params(model, model_new)
         shutil.rmtree(_tmp)
-
