@@ -6,12 +6,12 @@ import torch
 import shutil
 from torch import nn
 
-from sgad.sgvae import VAEGAN
+from sgad.sgvae import SGVAEGAN
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
 from sgad.sgvae.utils import all_equal_params, all_nonequal_params
 from sgad.utils import save_cfg, load_cfg, construct_model, load_model
 
-_tmp = "./_tmp_vaegan"
+_tmp = "./_tmp_sgvaegan"
 ac = 4
 seed = 1
 data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = False)
@@ -20,8 +20,8 @@ data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = False)
 class TestAll(unittest.TestCase):
     def test_default(self):
         # construct
-        model = VAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
-                       input_range=[-1, 1])
+        model = SGVAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
+                       input_range=[-1, 1], weight_texture=100.0)
 
         # fit
         losses_all, _, _ = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, workers=2)
@@ -46,6 +46,9 @@ class TestAll(unittest.TestCase):
         disc_auc = compute_auc(tst_y, disc_score)
         rec_auc = compute_auc(tst_y, rec_score)
         fm_auc = compute_auc(tst_y, fm_score)
+        print(disc_auc)
+        print(rec_auc)
+        print(fm_auc)
         self.assertTrue(disc_auc > 0.5)
         self.assertTrue(rec_auc > 0.5)
         self.assertTrue(fm_auc > 0.5)
@@ -60,7 +63,7 @@ class TestAll(unittest.TestCase):
         self.assertTrue(len(os.listdir(os.path.join(_tmp, "samples"))) > 0)
 
         # model loading
-        model_new = load_model(VAEGAN, _tmp)
+        model_new = load_model(SGVAEGAN, _tmp)
         self.assertTrue(model.config == model_new.config)
         all_equal_params(model, model_new)
         shutil.rmtree(_tmp)
