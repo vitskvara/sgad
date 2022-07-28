@@ -134,7 +134,7 @@ class VAEGAN(nn.Module):
         """
         # first check if the data is as expected
         range_tol = 0.1
-        if (X.max() < self.input_range[1] - tol) or (X.min() > self.input_range[0] + tol):
+        if (X.max() < self.input_range[1] - range_tol) or (X.min() > self.input_range[0] + range_tol):
             raise ValueError(f'Expected data in range {self.input_range}, obtained [{X.min()}, {X.max()}]')
 
         # setup the dataloader
