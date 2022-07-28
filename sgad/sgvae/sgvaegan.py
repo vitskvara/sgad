@@ -138,6 +138,11 @@ class SGVAEGAN(nn.Module):
 
         Returns (losses_all, None, None).
         """
+        # first check if the data is as expected
+        range_tol = 0.1
+        if (X.max() < self.input_range[1] - tol) or (X.min() > self.input_range[0] + tol):
+            raise ValueError(f'Expected data in range {self.input_range}, obtained [{X.min()}, {X.max()}]')
+
         # setup the dataloader
         y = torch.zeros(X.shape[0]).long()
         tr_loader = DataLoader(Subset(torch.tensor(X).float(), y), 
