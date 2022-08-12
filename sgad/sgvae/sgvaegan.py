@@ -350,27 +350,11 @@ class SGVAEGAN(nn.Module):
 
     def encode(self, x):
         """For given x, returns means and logvars in z space for all vaes in the model."""
-        encodings_s = self.vae_shape.encode(x)
-        encodings_b = self.vae_background.encode(x)
-        encodings_f = self.vae_foreground.encode(x)
-        return encodings_s, encodings_b, encodings_f
+        return self.sgvae.encode(x)
 
     def encode_mean_batched(self, X, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
-            workers=workers, shuffle=False)
-        encodings = []   
-        for batch in loader:
-            x = batch['ims'].to(self.device)
-            encs = self.encode(x)
-            encs = [x[0].to("cpu").data.numpy() for x in encs]
-            encodings.append(encs)
-
-        return (
-            np.concatenate([x[0] for x in encodings], 0), 
-            np.concatenate([x[1] for x in encodings], 0),
-            np.concatenate([x[2] for x in encodings], 0)
-            )
+        return self.sgvae.encode_mean_batched(X, batch_size, workers)
 
     def compose_image(self, mask, background, foreground):
         return self.clamp(self.sgvae.compose_image(mask, background, foreground))
