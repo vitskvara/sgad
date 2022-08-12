@@ -344,6 +344,34 @@ class SGVAEGAN(nn.Module):
     def generate(self, n):
         return self.clamp(self.sgvae.generate_mean(n))
 
+    # this is needed for legacy reasons
+    def generate_mean(self, n):
+        return self.generate(n)
+
+    def encode(self, x):
+        """For given x, returns means and logvars in z space for all vaes in the model."""
+        encodings_s = self.vae_shape.encode(x)
+        encodings_b = self.vae_background.encode(x)
+        encodings_f = self.vae_foreground.encode(x)
+        return encodings_s, encodings_b, encodings_f
+
+    def encode_mean_batched(self, x, batch_size=None, workers=1):
+        """For given x, returns means in z space for all vaes in the model."""
+        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
+            workers=workers, shuffle=False)
+        encodings = []   
+        for batch in loader:
+            x = batch['ims'].to(self.device)
+            encs = self.encode(x)
+            encs = [x[0].to("cpu").data.numpy() for x in encs]
+            encodings.append(encs)
+
+        return (
+            np.concatenate([x[0] for x in encodings], 0), 
+            np.concatenate([x[1] for x in encodings], 0),
+            np.concatenate([x[2] for x in encodings], 0)
+            )
+
     def compose_image(self, mask, background, foreground):
         return self.clamp(self.sgvae.compose_image(mask, background, foreground))
     
