@@ -355,7 +355,7 @@ class SGVAEGAN(nn.Module):
         encodings_f = self.vae_foreground.encode(x)
         return encodings_s, encodings_b, encodings_f
 
-    def encode_mean_batched(self, x, batch_size=None, workers=1):
+    def encode_mean_batched(self, X, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
         loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
