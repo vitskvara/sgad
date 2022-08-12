@@ -421,7 +421,7 @@ class SGVAE(nn.Module):
 
     def encode_mean_batched(self, x, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
+        loader = create_score_loader(x, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         encodings = []   
         for batch in loader:
@@ -445,7 +445,7 @@ class SGVAE(nn.Module):
 
     def encoded_batched(self, x, batch_size=None, workers=1):
         """For given x, returns samples in z space for all vaes in the model."""
-        loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
+        loader = create_score_loader(x, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
  
         encodings = []   
