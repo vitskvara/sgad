@@ -8,14 +8,17 @@ from sklearn.preprocessing import StandardScaler
 from sgad.utils import compute_auc, Subset
 
 class RobustLogisticRegression(nn.Module):
-    def __init__(self, alpha=[1.0,1.0,1.0,1.0], beta=1.0, alpha0=[1.0,0.0,0.0,0.0]):
+    def __init__(self, input_dim, alpha=None, beta=1.0, alpha0=None):
         super(RobustLogisticRegression, self).__init__()
+        if alpha == None:
+            alpha = np.ones(input_dim)
+        if alpha0 == None:
+            alpha0 = np.concatenate(([1], np.zeros(n-1)))
         self.alpha = nn.Parameter(torch.Tensor(alpha))
-        if not len(alpha0) == 4:
-            raise ValueError('alpha0 must be a vector og length 4')
         self.alpha0 = torch.Tensor(alpha0)
         self.beta = beta
         self.scaler = StandardScaler()
+        self.input_dim = input_dim
 
     def get_alpha(self):
         return self.alpha
