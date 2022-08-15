@@ -10,11 +10,23 @@ from sgad.utils import compute_auc, Subset
 class RobustLogisticRegression(nn.Module):
     def __init__(self, input_dim, alpha=None, beta=1.0, alpha0=None):
         super(RobustLogisticRegression, self).__init__()
-        if alpha == None:
-            alpha = np.ones(input_dim)
-        if alpha0 == None:
-            alpha0 = np.concatenate(([1], np.zeros(n-1)))
+        # set the initial alpha value
+        try:
+            if alpha == None:
+                alpha = np.ones(input_dim)
+        except ValueError: # do nothing
+            None
+        except:
+            raise
         self.alpha = nn.Parameter(torch.Tensor(alpha))
+        # set alpha prior
+        try:
+            if alpha0 == None:
+                alpha0 = np.concatenate(([1], np.zeros(n-1)))
+        except ValueError:
+            None
+        except:
+            raise
         self.alpha0 = torch.Tensor(alpha0)
         self.beta = beta
         self.scaler = StandardScaler()
