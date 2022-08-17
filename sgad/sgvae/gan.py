@@ -183,7 +183,7 @@ class GAN(nn.Module):
                 # optimize the generator
                 self.opts.zero_grad(['generator'])
                 sg = self.discriminator(xg)
-                fml = feature_matching_loss(xt, xg, self.discriminator, self.fm_depth)
+                fml = torch.mean(feature_matching_loss(xt, xg, self.discriminator, self.fm_depth))
                 gl = generator_loss(sg) + self.alpha*torch.mean(fml)
                 gl.backward()
                 self.opts.step(['generator'], False)
