@@ -260,7 +260,7 @@ class GAN(nn.Module):
     def predict(self, X, workers=12, batch_size=None, **kwargs):
         loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
-        return batched_score(lambda x: 1 - self.discriminate(x), loader, self.device, **kwargs)
+        return batched_score(lambda x: 1 - self.discriminate(x).detach().to('cpu').numpy(), loader, self.device, **kwargs)
 
     def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
