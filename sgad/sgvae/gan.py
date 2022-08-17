@@ -268,7 +268,7 @@ class GAN(nn.Module):
         return self.generator(z)
 
     def discriminate(self, x):
-        return self.discriminator(x)
+        return self.discriminator(x).reshape(-1)
 
     def num_params(self):
         s = 0
