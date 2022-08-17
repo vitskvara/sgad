@@ -22,7 +22,7 @@ class RobustLogisticRegression(nn.Module):
         # set alpha prior
         try:
             if alpha0 == None:
-                alpha0 = np.concatenate(([1], np.zeros(n-1)))
+                alpha0 = np.concatenate(([1], np.zeros(input_dim-1)))
         except ValueError:
             None
         except:
