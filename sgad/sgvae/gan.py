@@ -304,6 +304,13 @@ class GAN(nn.Module):
         save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_cols, sz=self.config.img_dim)
         
     def cpu_copy(self):
-        cp = copy.deepcopy(self)
-        cp.move_to('cpu')
+        device = self.device
+        self.move_to("cpu")
+        generator = copy.deepcopy(self.generator)
+        discriminator = copy.deepcopy(self.discriminator)
+        self.move_to(device)
+
+        cp = GAN(**self.config)
+        cp.generator = generator
+        cp.discriminator = discriminator
         return cp
