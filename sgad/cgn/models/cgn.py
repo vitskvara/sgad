@@ -25,8 +25,8 @@ def lin_block(in_feat, out_feat, normalize=True):
     layers.append(nn.LeakyReLU(0.2))
     return layers
 
-def shape_layers(cin, cout, ngf, init_sz):
-    return [
+def shape_layers(cin, cout, ngf, init_sz, n_layers=3, activation="leakyrelu"):
+    layers = [
         nn.Linear(cin, ngf*2 * init_sz ** 2),
         Reshape(*(-1, ngf*2, init_sz, init_sz)),
         get_norm_layer()(ngf*2),
@@ -35,8 +35,16 @@ def shape_layers(cin, cout, ngf, init_sz):
         *UpsampleBlock(ngf, cout),
         get_norm_layer()(cout),
     ]
+    if n_layers == 4:
+        layers.append(nn.Conv2d(cout, cout, 3, stride=1, padding=1, bias=False))
+        layers.append(nn.BatchNorm2d(cout))
+        layers.append(nn.LeakyReLU(0.2))
+    elif n_layers != 3:
+        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
 
-def texture_layers(cin, cout, ngf, init_sz):
+    return layers
+
+def texture_layers(cin, cout, ngf, init_sz, n_layers=3, activation="leakyrelu"):
     return [
         nn.Linear(cin, ngf*2 * init_sz ** 2),
         Reshape(*(-1, ngf*2, init_sz, init_sz)),

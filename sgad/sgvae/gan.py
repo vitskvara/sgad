@@ -47,6 +47,8 @@ class GAN(nn.Module):
                  h_channels=32, 
                  img_dim=32, 
                  img_channels=3,
+                 n_layers=3,
+                 activation="leakyrelu",
                  alpha=0.0,
                  fm_depth=7,
                  init_type='orthogonal', 
@@ -78,6 +80,8 @@ class GAN(nn.Module):
         self.fm_depth = fm_depth
         self.img_dim = img_dim
         self.img_channels = img_channels
+        self.activation=activation
+        self.n_layers = n_layers
         init_sz = img_dim // 4
         self.alpha = alpha
         
@@ -89,7 +93,8 @@ class GAN(nn.Module):
             self.generator = ShapeDecoder(z_dim, self.out_channels, h_channels, init_sz)
         
         # init discriminator
-        self.discriminator = Discriminator(self.out_channels, h_channels, img_dim)
+        self.discriminator = Discriminator(self.out_channels, h_channels, img_dim, n_layers=n_layers,
+            activation=activation)
         
         # Optimizers
         self.opts = Optimizers()
