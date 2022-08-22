@@ -184,7 +184,8 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['generator'])
                 sg = self.discriminator(xg)
                 fml = torch.mean(feature_matching_loss(xt, xg, self.discriminator, self.fm_depth))
-                gl = generator_loss(sg) + self.alpha*torch.mean(fml)
+                tgl = generator_loss(sg)
+                gl = tgl + self.alpha*torch.mean(fml)
                 gl.backward()
                 self.opts.step(['generator'], False)
 
@@ -203,7 +204,7 @@ class GAN(nn.Module):
                 losses_all['iter'].append(niter)
                 losses_all['epoch'].append(epoch)
                 losses_all['discloss'].append(get_val(dl))
-                losses_all['genloss'].append(get_val(gl))
+                losses_all['genloss'].append(get_val(tgl))
                 losses_all['fmloss'].append(get_val(fml))
                 losses_all['auc_val'].append(auc_val)
 
@@ -211,7 +212,7 @@ class GAN(nn.Module):
                 if verb:
                     msg = f"[Batch {i}/{len(tr_loader)}]"
                     msg += ''.join(f"[disc: {get_val(dl):.3f}]")
-                    msg += ''.join(f"[gen: {get_val(gl):.3f}]")
+                    msg += ''.join(f"[gen: {get_val(tgl):.3f}]")
                     msg += ''.join(f"[fml: {get_val(fml):.3f}]")
                     msg += ''.join(f"[auc val: {auc_val:.3f}]")
                     pbar.set_description(msg)
