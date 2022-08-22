@@ -31,7 +31,7 @@ def discriminator_loss(st, sg):
     
     mean(log(st)) + mean(log(1-sg))  = E[log(D(x)) + (log(1-D(G(z))))]
     """
-    return - (torch.mean(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8))) / 2.0
+    return - torch.mean(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8)) / 2.0
 
 def feature_matching_loss(x, xg, discriminator, l):
     """
@@ -236,7 +236,7 @@ class GAN(nn.Module):
             # after every epoch, print the val auc
             if X_val is not None:
                 self.eval()
-                scores_val = self.predict(X_val, score_type='logpx', num_workers=workers, n=10)
+                scores_val = self.predict(X_val, num_workers=workers)
                 auc_val = compute_auc(y_val, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:
@@ -261,7 +261,7 @@ class GAN(nn.Module):
     def predict(self, X, workers=12, batch_size=None, **kwargs):
         loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
-        return batched_score(lambda x: 1 - self.discriminate(x).detach().to('cpu').numpy(), loader, self.device, **kwargs)
+        return batched_score(lambda x: 1 - self.discriminate(x).detach().to('cpu').numpy(), loader, self.device)
 
     def generate(self, n):
         p = torch.distributions.Normal(torch.zeros(n, self.z_dim), 1.0)
