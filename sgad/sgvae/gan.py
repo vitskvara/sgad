@@ -49,6 +49,7 @@ class GAN(nn.Module):
                  img_channels=3,
                  n_layers=3,
                  activation="leakyrelu",
+                 batch_norm=True,
                  alpha=0.0,
                  fm_depth=7,
                  init_type='orthogonal', 
@@ -80,21 +81,21 @@ class GAN(nn.Module):
         self.fm_depth = fm_depth
         self.img_dim = img_dim
         self.img_channels = img_channels
-        self.activation=activation
-        self.n_layers = n_layers
         init_sz = img_dim // 4
         self.alpha = alpha
         
         # init generator
         self.out_channels = img_channels
         if gan_type == "texture":
-            self.generator = TextureDecoder(z_dim, self.out_channels, h_channels, init_sz)
+            self.generator = TextureDecoder(z_dim, self.out_channels, h_channels, init_sz, n_layers=n_layers,
+                activation=activation, batch_norm=batch_norm)
         if gan_type == "shape":
-            self.generator = ShapeDecoder(z_dim, self.out_channels, h_channels, init_sz)
+            self.generator = ShapeDecoder(z_dim, self.out_channels, h_channels, init_sz, n_layers=n_layers,
+                activation=activation, batch_norm=batch_norm)
         
         # init discriminator
         self.discriminator = Discriminator(self.out_channels, h_channels, img_dim, n_layers=n_layers,
-            activation=activation)
+            activation=activation, batch_norm=batch_norm)
         
         # Optimizers
         self.opts = Optimizers()
@@ -113,6 +114,9 @@ class GAN(nn.Module):
         self.config.h_channels = h_channels
         self.config.img_dim = img_dim
         self.config.img_channels = img_channels
+        self.config.activation=activation
+        self.config.n_layers = n_layers
+        self.config.batch_norm = batch_norm
         self.config.batch_size = batch_size
         self.config.init_type = init_type
         self.config.init_gain = init_gain

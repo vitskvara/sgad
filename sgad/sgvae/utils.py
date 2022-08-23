@@ -42,7 +42,7 @@ def ConvBlock(in_channels, out_channels, activation="leakyrelu", bn=True, bias=F
     if activation == "leakyrelu":
         af = nn.LeakyReLU(0.2)
     elif activation == "tanh":
-        af = Tanh()
+        af = nn.Tanh()
     else:
         raise ValueError(f"unimplemented activation function {activation}")
     res =  [nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1, bias=bias)]
@@ -62,9 +62,46 @@ def Encoder(z_dim, img_channels, h_channels, img_dim):
                 nn.LeakyReLU(0.2)
             )
 
-def TextureDecoder(z_dim, img_channels, h_channels, init_sz, n_layers=3, activation="leakyrelu"):
-    return nn.Sequential(*texture_layers(z_dim, img_channels, h_channels, init_sz, 
-        n_layers=n_layers, activation=activation), nn.Tanh())
+def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3):
+    out_dim = img_dim // 8
+    lin_dim = h_channels*4*out_dim*out_dim
+    res = [# this has to be like this otherwise there are problems with the fm loss
+                *ConvBlock(img_channels, h_channels, activation=activation, bn=False, bias=True),
+                *ConvBlock(h_channels, h_channels*2, activation=activation, bn=batch_norm),
+                *ConvBlock(h_channels*2, h_channels*4, activation=activation, bn=batch_norm)
+            ]
+    # append 4th conv block if needed
+    if n_layers == 4:
+        res = res + ConvBlock(h_channels*4,h_channels*4, activation=activation, bn=batch_norm, stride=1)
+    elif n_layers != 3:
+        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
+    # now append the reshaping and linear layers
+    res.append(Reshape(*(-1, lin_dim)))
+    res.append(nn.Linear(lin_dim, 1))
+    res.append(Sigmoid())
+
+    return nn.Sequential(*res)
+
+def TextureDecoder(z_dim, img_channels, h_channels, init_sz, activation="leakyrelu", batch_norm=True, 
+    n_layers=3):
+    # first few layers
+    res = [        
+        nn.Linear(z_dim, h_channels*2 * init_sz ** 2),
+        Reshape(*(-1, h_channels*2, init_sz, init_sz)),
+        *UpsampleBlock(h_channels*2, h_channels*2, activation=activation, bn=batch_norm),
+        *UpsampleBlock(h_channels*2, h_channels, activation=activation, bn=batch_norm)
+        ]
+    # add another 
+    if n_layers == 4:
+        res = res + UpsampleBlock(h_channels, h_channels, scale_factor=1, activation=activation,
+            bn=batch_norm, stride=1)
+    elif n_layers != 3:
+        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
+    # now final convolution and bn
+    res.append(nn.Conv2d(h_channels, img_channels, 3, stride=1, padding=1))
+    res.append(nn.BatchNorm2d(img_channels)) if batch_norm else None
+    res.append(nn.Tanh())
+    return nn.Sequential(*res)
 
 def ShapeDecoder(z_dim, img_channels, h_channels, init_sz, n_layers=3, activation="leakyrelu"):
     return nn.Sequential(*shape_layers(z_dim, img_channels, h_channels, init_sz, 
@@ -76,26 +113,6 @@ class Sigmoid(nn.Module):
 
     def forward(self, x):
         return torch.sigmoid(x)
-
-def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3):
-    out_dim = img_dim // 8
-    lin_dim = h_channels*4*out_dim*out_dim
-    layers = [# this has to be like this otherwise there are problems with the fm loss
-                *ConvBlock(img_channels, h_channels, activation=activation, bn=False, bias=True),
-                *ConvBlock(h_channels, h_channels*2, activation=activation, bn=batch_norm),
-                *ConvBlock(h_channels*2, h_channels*4, activation=activation, bn=batch_norm)
-            ]
-    # append 4th conv block if needed
-    if n_layers == 4:
-        layers.append(*ConvBlock(h_channels*4,h_channels*4, activation=activation, bn=batch_norm, stride=1))
-    elif n_layers != 3:
-        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
-    # now append the reshaping and linear layers
-    layers.append(Reshape(*(-1, lin_dim)))
-    layers.append(nn.Linear(lin_dim, 1))
-    layers.append(Sigmoid())
-
-    return nn.Sequential(*layers)
 
 def rp_trick(mu, std):
     """Reparametrization trick via Normal distribution."""

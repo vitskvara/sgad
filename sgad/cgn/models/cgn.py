@@ -11,13 +11,21 @@ class Reshape(nn.Module):
     def forward(self, x):
         return x.view(self.shape)
 
-def UpsampleBlock(cin, cout, scale_factor=2):
-    return [
+def UpsampleBlock(cin, cout, scale_factor=2, activation="leakyrelu", bn=True, bias=False, stride=1):
+    if activation == "leakyrelu":
+        af = nn.LeakyReLU(0.2)
+    elif activation == "tanh":
+        af = nn.Tanh()
+    else:
+        raise ValueError(f"unimplemented activation function {activation}")
+
+    res = [
         nn.Upsample(scale_factor=scale_factor),
-        nn.Conv2d(cin, cout, 3, stride=1, padding=1, bias=False),
-        nn.BatchNorm2d(cout),
-        nn.LeakyReLU(0.2),
+        nn.Conv2d(cin, cout, 3, stride=stride, padding=1, bias=bias)
     ]
+    res.append(nn.BatchNorm2d(cout)) if bn else None
+    res.append(af)
+    return res
 
 def lin_block(in_feat, out_feat, normalize=True):
     layers = [nn.Linear(in_feat, out_feat)]
@@ -25,8 +33,8 @@ def lin_block(in_feat, out_feat, normalize=True):
     layers.append(nn.LeakyReLU(0.2))
     return layers
 
-def shape_layers(cin, cout, ngf, init_sz, n_layers=3, activation="leakyrelu"):
-    layers = [
+def shape_layers(cin, cout, ngf, init_sz):
+    return [
         nn.Linear(cin, ngf*2 * init_sz ** 2),
         Reshape(*(-1, ngf*2, init_sz, init_sz)),
         get_norm_layer()(ngf*2),
@@ -35,16 +43,8 @@ def shape_layers(cin, cout, ngf, init_sz, n_layers=3, activation="leakyrelu"):
         *UpsampleBlock(ngf, cout),
         get_norm_layer()(cout),
     ]
-    if n_layers == 4:
-        layers.append(nn.Conv2d(cout, cout, 3, stride=1, padding=1, bias=False))
-        layers.append(nn.BatchNorm2d(cout))
-        layers.append(nn.LeakyReLU(0.2))
-    elif n_layers != 3:
-        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
 
-    return layers
-
-def texture_layers(cin, cout, ngf, init_sz, n_layers=3, activation="leakyrelu"):
+def texture_layers(cin, cout, ngf, init_sz):
     return [
         nn.Linear(cin, ngf*2 * init_sz ** 2),
         Reshape(*(-1, ngf*2, init_sz, init_sz)),
