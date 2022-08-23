@@ -194,7 +194,7 @@ class GAN(nn.Module):
                 sg = self.discriminator(xg)
                 fml = torch.mean(feature_matching_loss(xt, xg, self.discriminator, self.fm_depth))
                 tgl = generator_loss(sg)
-                gl = tgl + self.alpha*torch.mean(fml)
+                gl = tgl + self.alpha*fml
                 gl.backward()
                 self.opts.step(['generator'], False)
 
