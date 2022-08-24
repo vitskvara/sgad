@@ -4,6 +4,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
 import warnings
+import functools
 
 from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
 from sgad.cgn.models.cgn import get_norm_layer
@@ -103,9 +104,28 @@ def TextureDecoder(z_dim, img_channels, h_channels, init_sz, activation="leakyre
     res.append(nn.Tanh())
     return nn.Sequential(*res)
 
-def ShapeDecoder(z_dim, img_channels, h_channels, init_sz, n_layers=3, activation="leakyrelu"):
-    return nn.Sequential(*shape_layers(z_dim, img_channels, h_channels, init_sz, 
-        n_layers=n_layers, activation=activation))
+def ShapeDecoder(z_dim, img_channels, h_channels, init_sz, activation="leakyrelu", batch_norm=True, 
+    n_layers=3):
+    # define instance norm
+    inst = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    # first few layers
+    res = [        
+        nn.Linear(z_dim, h_channels*2 * init_sz ** 2),
+        Reshape(*(-1, h_channels*2, init_sz, init_sz))
+        ]
+    res.append(inst(h_channels*2)) if batch_norm else None
+    res += UpsampleBlock(h_channels*2, h_channels, activation=activation, bn=False)
+    res.append(inst(h_channels)) if batch_norm else None
+    # add 4th layer if needed
+    if n_layers == 4:
+        res += UpsampleBlock(h_channels, h_channels, scale_factor=1, activation=activation, bn=False)
+        res.append(inst(h_channels)) if batch_norm else None
+    elif n_layers != 3:
+        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
+    # and finally the rest
+    res += UpsampleBlock(h_channels, img_channels, activation=activation, bn=False)
+    res.append(inst(img_channels)) if batch_norm else None
+    return nn.Sequential(*res)
 
 class Sigmoid(nn.Module):
     def __init__(self, *args):

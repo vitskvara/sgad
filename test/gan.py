@@ -64,6 +64,27 @@ class TestAll(unittest.TestCase):
 		self.assertTrue(len(model.discriminator) == 11)
 		self.assertTrue(all(model.generator[4](torch.Tensor([3000])) == torch.Tensor([1])))
 
+		# shape
+		model, xs, os = test_params(tr_X, gan_type="shape")
+		self.assertTrue(xs)
+		self.assertTrue(os)
+		self.assertTrue(len(model.generator) == 11)
+		self.assertTrue(len(model.discriminator) == 11)
+
+		# shape + n_layers
+		model, xs, os = test_params(tr_X, gan_type="shape", n_layers=4)
+		self.assertTrue(xs)
+		self.assertTrue(os)
+		self.assertTrue(len(model.generator) == 15)
+		self.assertTrue(len(model.discriminator) == 14)
+
+		# shape + n_layers - bn
+		model, xs, os = test_params(tr_X, gan_type="shape", n_layers=4, batch_norm=False)
+		self.assertTrue(xs)
+		self.assertTrue(os)
+		self.assertTrue(len(model.generator) == 11)
+		self.assertTrue(len(model.discriminator) == 11)
+
 	def test_fit(self):
 		# construct
 		model = GAN(alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
