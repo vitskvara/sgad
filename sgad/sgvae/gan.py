@@ -57,7 +57,7 @@ class GAN(nn.Module):
                  init_seed=None,
                  batch_size=32, 
                  gan_type="texture",
-                 optimizer="adam",
+                 optimizer="rmsprop",
                  lr=0.0002,
                  betas=[0.5, 0.999],
                  device=None,
