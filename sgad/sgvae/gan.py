@@ -56,7 +56,8 @@ class GAN(nn.Module):
                  init_gain=0.1, 
                  init_seed=None,
                  batch_size=32, 
-                 gan_type="texture", 
+                 gan_type="texture",
+                 optimizer="adam",
                  lr=0.0002,
                  betas=[0.5, 0.999],
                  device=None,
@@ -99,8 +100,8 @@ class GAN(nn.Module):
         
         # Optimizers
         self.opts = Optimizers()
-        self.opts.set('generator', self.generator, lr=lr, betas=betas)
-        self.opts.set('discriminator', self.discriminator, lr=lr, betas=betas)
+        self.opts.set('generator', self.generator, opt=optimizer, lr=lr, betas=betas)
+        self.opts.set('discriminator', self.discriminator, opt=optimizer, lr=lr, betas=betas)
 
         # reset seed
         torch.random.seed()
@@ -122,6 +123,7 @@ class GAN(nn.Module):
         self.config.init_gain = init_gain
         self.config.init_seed = init_seed
         self.config.gan_type = gan_type
+        self.config.optimizer = optimizer
         self.config.alpha = alpha
         self.config.fm_depth = fm_depth
         self.config.lr = lr

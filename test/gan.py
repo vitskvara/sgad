@@ -67,7 +67,7 @@ class TestAll(unittest.TestCase):
 	def test_fit(self):
 		# construct
 		model = GAN(alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
-					   input_range=[-1, 1])
+					   input_range=[-1, 1], optimizer="rmsprop")
 
 		# fit
 		losses_all, _, _ = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, workers=2)

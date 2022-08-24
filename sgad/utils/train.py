@@ -7,8 +7,11 @@ class Optimizers():
     def __init__(self):
         self._modules = {}
 
-    def set(self, k, model, lr=3e-3, betas=(0.9, 0.999)):
-        self._modules[k] = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
+    def set(self, k, model, opt="adam", lr=3e-3, betas=(0.9, 0.999), alpha=0.99):
+        if opt == "adam":
+            self._modules[k] = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
+        elif opt == "rmsprop":
+            self._modules[k] = torch.optim.RMSprop(model.parameters(), lr=lr, alpha=alpha)
 
     def add_params(self, k, params):
         self._modules[k].add_param_group(params)
