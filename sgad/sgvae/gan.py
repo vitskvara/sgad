@@ -7,6 +7,7 @@ from yacs.config import CfgNode as CN
 from tqdm import tqdm
 import copy
 import pandas
+import warnings
 
 import numpy as np
 from pathlib import Path
@@ -142,7 +143,8 @@ class GAN(nn.Module):
            ):
         """Fit the model given X (and possibly y).
 
-        Returns (losses_all, best_model, best_epoch)
+        Returns (losses_all, best_model, best_epoch). Since the output of the generator is Tanh, 
+        scale the data to the interval [-1,1].
         """
         # setup the dataloader
         y = torch.zeros(X.shape[0]).long()
@@ -150,6 +152,12 @@ class GAN(nn.Module):
             batch_size=self.config.batch_size, 
             shuffle=True, 
             num_workers=workers)
+
+        # check the scale of the data - [-1,1] works best
+        if X.min() >= 0.0:
+            warnings.warn("It is possible that your input X is not scaled to the interval [-1,1], please do so for better performance.")
+        if X_val is not None and X_val.min() >= 0.0:
+            warnings.warn("It is possible that your the validation data X_val is not scaled to the interval [-1,1], please do so for better performance.")
 
         # also check the validation data
         if X_val is not None and y_val is None:

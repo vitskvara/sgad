@@ -5,6 +5,7 @@ import os
 import torch 
 import shutil
 from torch import nn
+import warnings
 
 from sgad.sgvae import GAN
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
@@ -85,6 +86,20 @@ class TestAll(unittest.TestCase):
 		self.assertTrue(len(model.generator) == 11)
 		self.assertTrue(len(model.discriminator) == 11)
 
+	def test_fit_warning(self):
+		data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = True)
+		(tr_X, tr_y, tr_c), (val_X, val_y, val_c), (tst_X, tst_y, tst_c) = data
+
+		# construct
+		model = GAN(alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
+					   input_range=[-1, 1], optimizer="adam")
+
+		# fit
+		with self.assertWarns(UserWarning):
+			losses_all, _, _ = model.fit(tr_X, n_epochs=1, save_path=_tmp, save_weights=False, workers=2)
+
+		shutil.rmtree(_tmp)
+
 	def test_fit(self):
 		# construct
 		model = GAN(alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
@@ -121,3 +136,5 @@ class TestAll(unittest.TestCase):
 #		self.assertTrue(model.config == model_new.config)
 #		all_equal_params(model, model_new)
 		shutil.rmtree(_tmp)
+
+	

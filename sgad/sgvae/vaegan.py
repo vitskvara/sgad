@@ -27,7 +27,7 @@ def vaegan_generator_loss(sg, sr):
     
     mean(log(sg) + log(sr)) = E[log(D(G(z))) + log(D(G(E(x))))]
     """
-    return - torch.sum(torch.log(sg + 1e-8) + torch.log(sr + 1e-8)) / 2
+    return - torch.sum(torch.log(sg + 1e-8) + torch.log(sr + 1e-8)) / 2.0
 
 def vaegan_discriminator_loss(st, sg, sr):
     """
@@ -35,7 +35,7 @@ def vaegan_discriminator_loss(st, sg, sr):
     
     mean(log(st) + log(1-sg) + log(1-sr))  = E[log(D(x)) + (log(1-D(G(z)))) + (log(1-D(G(E(x)))))]
     """
-    return - torch.sum(torch.log(st + 1e-8) + (torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8)) / 2)
+    return - torch.sum(torch.log(st + 1e-8) + (torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8)) / 2.0) / 2.0
 
 class VAEGAN(nn.Module):
     """VAEGAN(**kwargs)
