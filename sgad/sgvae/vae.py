@@ -428,8 +428,7 @@ class VAE(nn.Module):
         return -np.mean(lpxs, 0)
 
     def cpu_copy(self):
-        device = self.device # save the original device
-        self.move_to('cpu') # move to cpu
         cp = copy.deepcopy(self)
-        self.move_to(device)
+        cp.log_var_net_x = lambda x: cp.log_var_x_global
+        cp.move_to("cpu")
         return cp
