@@ -432,6 +432,5 @@ class VAE(nn.Module):
 
     def cpu_copy(self):
         cp = copy.deepcopy(self)
-        cp.log_var_net_x = lambda x: cp.log_var_x_global
         cp.move_to("cpu")
         return cp
