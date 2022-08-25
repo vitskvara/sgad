@@ -24,6 +24,17 @@ def test_args(X_raw, **kwargs):
     xs[1] = model.out_channels
     return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
 
+X_raw = np.random.randn(10,3,32,32).astype('float32')
+model, xo, zo = test_args(X_raw)
+
+modelc = copy.deepcopy(model)
+modelc = model.cpu_copy()
+model.train_step(torch.tensor(X_raw).to(model.device))
+model.encoder[0].weight[0,0]
+modelc.encoder[0].weight[0,0]
+
+
+
 class TestConstructor(unittest.TestCase):
     def test_default(self):
         model, xo, zo = test_args(X_raw)
@@ -143,6 +154,10 @@ class TestUtils(unittest.TestCase):
         if device.type != 'cuda':
             self.assertTrue(device.type == next(cpu_model.parameters()).device.type)
         self.assertTrue(all_equal_params(model, cpu_model))
+        model.train_step(torch.tensor(X_raw[:10]).to(model.device))
+        w = model.encoder[0].weight[0,0]
+        cpuw = cpu_model.encoder[0].weight[0,0]
+        self.assertTrue(not (cpuw.to(model.device) == w).any())
 
 # test that all the parts are trained
 # test the different constructors
@@ -153,27 +168,52 @@ class TestFit(unittest.TestCase):
     def test_fit_default(self):
         nc = 0
         X = X_raw[y_raw == nc]
+        x = torch.tensor(X[:10]).to(model.device)
+        _, _, elbo, _, _, _, _ = model.train_step(x)
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1])
         model.fit(X,
-            n_epochs=20, 
+            n_epochs=10, 
             save_iter=1000, 
             verb=True, 
             save_results=True, 
             save_path=_tmp
            )
+        _, _, _elbo, _, _, _, _ = model.train_step(x)
+        self.assertTrue(elbo > _elbo)
         shutil.rmtree(_tmp)
         
     def test_fit_shape(self):
         nc = 0
         X = X_raw[y_raw == nc][:,0:1,:,:]
+        x = torch.tensor(X[:10]).to(model.device)
+        _, _, elbo, _, _, _, _ = model.train_step(x)
         model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
         model.fit(X,
-            n_epochs=20, 
+            n_epochs=10, 
             save_iter=1000, 
             verb=True, 
             save_results=True, 
             save_path=_tmp
            )
+        _, _, _elbo, _, _, _, _ = model.train_step(x)
+        self.assertTrue(elbo > _elbo)
+        shutil.rmtree(_tmp)
+
+    def test_fit_rmsprop(self):
+        nc = 0
+        X = X_raw[y_raw == nc]
+        x = torch.tensor(X[:10]).to(model.device)
+        _, _, elbo, _, _, _, _ = model.train_step(x)
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], optimizer="rmsprop")
+        model.fit(X,
+            n_epochs=5, 
+            save_iter=1000, 
+            verb=True, 
+            save_results=True, 
+            save_path=_tmp
+           )
+        _, _, _elbo, _, _, _, _ = model.train_step(x)
+        self.assertTrue(elbo > _elbo)
         shutil.rmtree(_tmp)
 
 class TestParams(unittest.TestCase):

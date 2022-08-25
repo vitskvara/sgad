@@ -120,14 +120,14 @@ class VAE(nn.Module):
         self.config.img_dim = img_dim
         self.config.img_channels = img_channels
         self.config.batch_size = batch_size
-        self.config.n_layers = n_layers,
-        self.config.activation = activation,
-        self.config.batch_norm = batch_norm,
+        self.config.n_layers = n_layers
+        self.config.activation = activation
+        self.config.batch_norm = batch_norm
         self.config.init_type = init_type
         self.config.init_gain = init_gain
         self.config.init_seed = init_seed
         self.config.vae_type = vae_type
-        self.config.optimizer = optimizer,
+        self.config.optimizer = optimizer
         self.config.std_approx = std_approx
         self.config.lr = lr
         self.config.betas = betas   
@@ -194,25 +194,9 @@ class VAE(nn.Module):
                 # Data to device
                 x = data['ims'].to(self.device)
 
-                # encode data, compute kld
-                mu_z, log_var_z = self.encode(x)
-                std_z = self.std(log_var_z)
-                z = rp_trick(mu_z, std_z)
-                kld = torch.mean(self.kld(mu_z, log_var_z))
-                
-                # decode, compute logpx
-                mu_x, log_var_x = self.decode(z)
-                std_x = self.std(log_var_x)
-                lpx = torch.mean(logpx(x, mu_x, std_x))
+                # do one training update
+                kld, lpx, elbo, mu_z, log_var_z, mu_x, log_var_x = train_step(self, x)
 
-                # compute elbo
-                elbo = torch.mean(kld - lpx)
-
-                # do a step    
-                self.opts.zero_grad(['vae'])
-                elbo.backward()
-                self.opts.step(['vae'], False) # use zero_grad = false here?
-                
                 # collect losses
                 def get_val(t):
                     return float(t.data.cpu().numpy())
@@ -272,7 +256,28 @@ class VAE(nn.Module):
             best_epoch = n_epochs
 
         return losses_all, best_model, best_epoch
+       
+    def train_step(self, x):
+        # encode data, compute kld
+        mu_z, log_var_z = self.encode(x)
+        std_z = self.std(log_var_z)
+        z = rp_trick(mu_z, std_z)
+        kld = torch.mean(self.kld(mu_z, log_var_z))
         
+        # decode, compute logpx
+        mu_x, log_var_x = self.decode(z)
+        std_x = self.std(log_var_x)
+        lpx = torch.mean(logpx(x, mu_x, std_x))
+
+        # compute elbo
+        elbo = torch.mean(kld - lpx)
+
+        # do a step    
+        self.opts.zero_grad(['vae'])
+        elbo.backward()
+        self.opts.step(['vae'], False) # use zero_grad = false here?
+        return kld, lpx, elbo, mu_z, log_var_z, mu_x, log_var_x 
+ 
     def std(self, log_var):
         if self.std_approx == "exp":
             return torch.exp(log_var/2)
@@ -416,39 +421,6 @@ class VAE(nn.Module):
     def cpu_copy(self):
         device = self.device # save the original device
         self.move_to('cpu') # move to cpu
-        encoder = copy.deepcopy(self.encoder)
-        decoder = copy.deepcopy(self.decoder)
-        mu_net_z = copy.deepcopy(self.mu_net_z)
-        log_var_net_z = copy.deepcopy(self.log_var_net_z)
-        mu_net_x = copy.deepcopy(self.mu_net_x)
-        log_var_net_x = copy.deepcopy(self.log_var_net_x)
-        log_var_x_global = copy.deepcopy(self.log_var_x_global)
-        
-        self.move_to(device) # move it back
-        cp = VAE( # now create a cpu copy
-                z_dim=self.config.z_dim,
-                h_channels=self.config.h_channels,
-                img_dim=self.config.img_dim,
-                img_channels=self.config.img_channels,
-                batch_size=self.config.batch_size,
-                init_type=self.config.init_type, 
-                init_gain=self.config.init_gain,
-                init_seed=self.config.init_seed,
-                vae_type=self.config.vae_type, 
-                std_approx=self.config.std_approx,
-                lr=self.config.lr,
-                betas=self.config.betas,
-                device='cpu',
-                log_var_x_estimate=self.config.log_var_x_estimate
-                )
-
-        # now replace the parts
-        cp.encoder = encoder
-        cp.decoder = decoder
-        cp.mu_net_z = mu_net_z
-        cp.log_var_net_z = log_var_net_z
-        cp.mu_net_x = mu_net_x
-        cp.log_var_net_x = log_var_net_x
-        cp.log_var_x_global = log_var_x_global
-        
+        cp = copy.deepcopy(self)
+        self.move_to(device)
         return cp
