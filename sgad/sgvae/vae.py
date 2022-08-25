@@ -244,7 +244,7 @@ class VAE(nn.Module):
             # after every epoch, print the val auc
             if X_val is not None:
                 self.eval()
-                scores_val = self.predict(X_val, score_type='logpx', num_workers=workers, n=10)
+                scores_val = self.predict(X_val, score_type='logpx', workers=workers, n=10)
                 auc_val = compute_auc(y_val, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:
