@@ -96,7 +96,7 @@ class VAE(nn.Module):
             self.log_var_x_global = None
         elif log_var_x_estimate == "global":
             self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0]))
-            self.log_var_net_x = lambda x: self.log_var_x_global
+            self.log_var_net_x = self.get_global_var_x
         else:
             warnings.warn(f"log_var_x_estimate {log_var_x_estimate} not known, you should set .log_var_net_x with a callable function")
 
@@ -292,6 +292,9 @@ class VAE(nn.Module):
             return torch.exp(log_var/2)
         else:
             return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
+
+    def get_global_var_x(self, x):
+        return self.log_var_x_global
     
     def encode(self, x):
         """Return the mean and log_var vectors of encodings in z space."""
