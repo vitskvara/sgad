@@ -24,17 +24,6 @@ def test_args(X_raw, **kwargs):
     xs[1] = model.out_channels
     return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
 
-X_raw = np.random.randn(10,3,32,32).astype('float32')
-model, xo, zo = test_args(X_raw)
-
-modelc = copy.deepcopy(model)
-modelc = model.cpu_copy()
-model.train_step(torch.tensor(X_raw).to(model.device))
-model.encoder[0].weight[0,0]
-modelc.encoder[0].weight[0,0]
-
-
-
 class TestConstructor(unittest.TestCase):
     def test_default(self):
         model, xo, zo = test_args(X_raw)
