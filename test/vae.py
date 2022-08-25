@@ -118,7 +118,7 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(len(next(iter(model.parameters()))) > 0)
         self.assertTrue(model.encoder[0].in_channels == 3)
         self.assertTrue(model.decoder[0].in_features == 32)
-        self.assertTrue(model.decoder[-4].out_channels == 2)
+        self.assertTrue(model.decoder[-3].out_channels == 2)
         self.assertTrue(model.mu_net_z.in_features == 64)
         self.assertTrue(model.mu_net_z.out_features == 32)
         self.assertTrue(model.log_var_net_z.in_features == 64)
@@ -157,9 +157,9 @@ class TestFit(unittest.TestCase):
     def test_fit_default(self):
         nc = 0
         X = X_raw[y_raw == nc]
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1])
         x = torch.tensor(X[:10]).to(model.device)
         _, _, elbo, _, _, _, _ = model.train_step(x)
-        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1])
         model.fit(X,
             n_epochs=10, 
             save_iter=1000, 
@@ -174,9 +174,9 @@ class TestFit(unittest.TestCase):
     def test_fit_shape(self):
         nc = 0
         X = X_raw[y_raw == nc][:,0:1,:,:]
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
         x = torch.tensor(X[:10]).to(model.device)
         _, _, elbo, _, _, _, _ = model.train_step(x)
-        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], vae_type="shape")
         model.fit(X,
             n_epochs=10, 
             save_iter=1000, 
@@ -191,9 +191,9 @@ class TestFit(unittest.TestCase):
     def test_fit_rmsprop(self):
         nc = 0
         X = X_raw[y_raw == nc]
+        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], optimizer="rmsprop")
         x = torch.tensor(X[:10]).to(model.device)
         _, _, elbo, _, _, _, _ = model.train_step(x)
-        model = VAE(img_dim=X.shape[2], img_channels=X.shape[1], optimizer="rmsprop")
         model.fit(X,
             n_epochs=5, 
             save_iter=1000, 

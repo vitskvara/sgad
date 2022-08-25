@@ -195,7 +195,7 @@ class VAE(nn.Module):
                 x = data['ims'].to(self.device)
 
                 # do one training update
-                kld, lpx, elbo, mu_z, log_var_z, mu_x, log_var_x = train_step(self, x)
+                kld, lpx, elbo, mu_z, log_var_z, mu_x, log_var_x = self.train_step(x)
 
                 # collect losses
                 def get_val(t):
