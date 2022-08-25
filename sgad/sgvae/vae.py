@@ -26,11 +26,15 @@ class VAE(nn.Module):
                  h_channels=32, 
                  img_dim=32, 
                  img_channels=3,
+                 n_layers=3,
+                 activation="leakyrelu",
+                 batch_norm=True,
                  init_type='orthogonal', 
                  init_gain=0.1, 
                  init_seed=None,
                  batch_size=32, 
-                 vae_type="texture", 
+                 vae_type="texture",
+                 optimizer="adam",
                  std_approx="exp",
                  lr=0.0002,
                  betas=[0.5, 0.999],
@@ -64,13 +68,16 @@ class VAE(nn.Module):
         init_sz = img_dim // 4
         
         # encoder + decoder
-        self.encoder = Encoder(z_dim, img_channels, h_channels, img_dim) 
+        self.encoder = Encoder(z_dim, img_channels, h_channels, img_dim, activation=activation, 
+            batch_norm=batch_norm, n_layers=n_layers) 
         if vae_type == "texture":
             self.out_channels = img_channels
-            self.decoder = TextureDecoder(z_dim, self.out_channels+1, h_channels, init_sz)
+            self.decoder = TextureDecoder(z_dim, self.out_channels+1, h_channels, init_sz, 
+                activation=activation, batch_norm=batch_norm, n_layers=n_layers)
         elif vae_type == "shape":
             self.out_channels = 1
-            self.decoder = ShapeDecoder(z_dim, self.out_channels+1, h_channels, init_sz)
+            self.decoder = ShapeDecoder(z_dim, self.out_channels+1, h_channels, init_sz, 
+                activation=activation, batch_norm=batch_norm, n_layers=n_layers)
         else:
             raise ValueError(f'vae type {vae_type} unknown, try "shape" or "texture"')
 
@@ -98,7 +105,7 @@ class VAE(nn.Module):
         
         # Optimizers
         self.opts = Optimizers()
-        self.opts.set('vae', self, lr=lr, betas=betas)
+        self.opts.set('vae', self, opt=optimizer, lr=lr, betas=betas)
 
         # reset seed
         torch.random.seed()
@@ -113,10 +120,14 @@ class VAE(nn.Module):
         self.config.img_dim = img_dim
         self.config.img_channels = img_channels
         self.config.batch_size = batch_size
+        self.config.n_layers = n_layers,
+        self.config.activation = activation,
+        self.config.batch_norm = batch_norm,
         self.config.init_type = init_type
         self.config.init_gain = init_gain
         self.config.init_seed = init_seed
         self.config.vae_type = vae_type
+        self.config.optimizer = optimizer,
         self.config.std_approx = std_approx
         self.config.lr = lr
         self.config.betas = betas   

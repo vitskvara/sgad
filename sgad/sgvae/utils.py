@@ -51,17 +51,30 @@ def ConvBlock(in_channels, out_channels, activation="leakyrelu", bn=True, bias=F
     res.append(af)
     return res
 
-def Encoder(z_dim, img_channels, h_channels, img_dim):
+def Encoder(z_dim, img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
-    return nn.Sequential(
-                *ConvBlock(img_channels, h_channels),
-                *ConvBlock(h_channels, h_channels*2),
-                *ConvBlock(h_channels*2, h_channels*4),
-                Reshape(*(-1, lin_dim)),
-                nn.Linear(lin_dim, z_dim*2),
-                nn.LeakyReLU(0.2)
-            )
+    # correct activation
+    if activation == "leakyrelu":
+        af = nn.LeakyReLU(0.2)
+    elif activation == "tanh":
+        af = nn.Tanh()
+    else:
+        raise ValueError(f"unimplemented activation function {activation}")
+    # 3 baic convblocks    
+    res = ConvBlock(img_channels, h_channels, activation=activation, bn=batch_norm)
+    res += ConvBlock(h_channels, h_channels*2, activation=activation, bn=batch_norm)
+    res += ConvBlock(h_channels*2, h_channels*4, activation=activation, bn=batch_norm)
+    # append 4th conv block if needed
+    if n_layers == 4:
+        res = res + ConvBlock(h_channels*4,h_channels*4, activation=activation, bn=batch_norm, stride=1)
+    elif n_layers != 3:
+        raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
+    # now append the reshaping and linear layers
+    res.append(Reshape(*(-1, lin_dim)))
+    res.append(nn.Linear(lin_dim, z_dim*2))
+    res.append(af)
+    return nn.Sequential(*res)
 
 def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3):
     out_dim = img_dim // 8
@@ -123,7 +136,8 @@ def ShapeDecoder(z_dim, img_channels, h_channels, init_sz, activation="leakyrelu
     elif n_layers != 3:
         raise ValueError(f"this function is implemented only for 3 or 4 layers, not for {n_layers}")
     # and finally the rest
-    res += UpsampleBlock(h_channels, img_channels, activation=activation, bn=False)
+    # no tanh in the last layers since we want outputs in [0,1]
+    res += UpsampleBlock(h_channels, img_channels, activation="leakyrelu", bn=False)
     res.append(inst(img_channels)) if batch_norm else None
     return nn.Sequential(*res)
 

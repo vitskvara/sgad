@@ -13,9 +13,22 @@ from sgad.sgvae.utils import all_equal_params, all_nonequal_params
 
 X_raw, y_raw = load_wildlife_mnist(denormalize=False)
 
+def test_args(X_raw, **kwargs):
+    n = 10
+    model = VAE(**kwargs)
+    x = torch.tensor(X_raw[:n]).to(model.device)
+    z = torch.randn((n,model.z_dim)).to(model.device)
+    xh = model.decoded(z)
+    zh = model.encoded(x)
+    xs = np.array(x.size())
+    xs[1] = model.out_channels
+    return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
+
 class TestConstructor(unittest.TestCase):
     def test_default(self):
-        model = VAE()
+        model, xo, zo = test_args(X_raw)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
         self.assertTrue(model.num_params() > 5000)
         self.assertTrue(len(next(iter(model.parameters()))) > 0)
         self.assertTrue(model.encoder[0].in_channels == 3)
@@ -38,12 +51,16 @@ class TestConstructor(unittest.TestCase):
         self.assertTrue(model.config.h_channels == 32)
         self.assertTrue(model.config.img_dim == 32)
         self.assertTrue(model.config.img_channels == 3)
+        self.assertTrue(model.config.n_layers == 3)
+        self.assertTrue(model.config.activation == "leakyrelu")
+        self.assertTrue(model.config.batch_norm == True)
         self.assertTrue(model.config.batch_size == 32) 
         self.assertTrue(model.config.init_type == "orthogonal")
         self.assertTrue(model.config.init_gain == 0.1)
         self.assertTrue(model.config.init_seed == None)
         self.assertTrue(model.config.vae_type == "texture")
         self.assertTrue(model.config.std_approx == "exp")
+        self.assertTrue(model.config.optimizer == "adam")
         self.assertTrue(model.config.lr == 0.0002)
         self.assertTrue(model.config.betas == [0.5, 0.999])
         
@@ -58,6 +75,42 @@ class TestConstructor(unittest.TestCase):
         model = VAE(init_seed=3)
         b = get_w(model)
         self.assertTrue(a == b)
+
+    def test_constructor(self):
+        model, xo, zo = test_args(X_raw, vae_type = "shape")
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+
+        model, xo, zo = test_args(X_raw, n_layers=4)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.encoder) == 15)
+        self.assertTrue(len(model.decoder) == 17)
+
+        model, xo, zo = test_args(X_raw, n_layers=4, batch_norm=False)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.encoder) == 11)
+        self.assertTrue(len(model.decoder) == 13)
+
+        model, xo, zo = test_args(X_raw, n_layers=3, batch_norm=False)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.encoder) == 9)
+        self.assertTrue(len(model.decoder) == 10)
+
+        model, xo, zo = test_args(X_raw, n_layers=3, batch_norm=False, vae_type="shape")
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.encoder) == 9)
+        self.assertTrue(len(model.decoder) == 8)
+
+        model, xo, zo = test_args(X_raw, n_layers=3, batch_norm=False, vae_type="shape", activation="tanh")
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.encoder) == 9)
+        self.assertTrue(len(model.decoder) == 8)
+        self.assertTrue(all(model.decoder[4](torch.Tensor([3000])) == torch.Tensor([1])))
 
     def test_shape(self):
         model = VAE(vae_type="shape")
