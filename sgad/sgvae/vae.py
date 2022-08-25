@@ -291,7 +291,7 @@ class VAE(nn.Module):
         if self.std_approx == "exp":
             return torch.exp(log_var/2)
         else:
-            return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
+            return torch.nn.Softplus()(log_var/2) + np.float32(1e-6)
 
     def get_global_var_x(self, x):
         return self.log_var_x_global

@@ -35,7 +35,7 @@ def vaegan_discriminator_loss(st, sg, sr):
     
     mean(log(st) + log(1-sg) + log(1-sr))  = E[log(D(x)) + (log(1-D(G(z)))) + (log(1-D(G(E(x)))))]
     """
-    return - torch.sum(torch.log(st + 1e-8) + (torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8)) / 2.0) / 2.0
+    return - torch.sum(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8))  / 3.0
 
 class VAEGAN(nn.Module):
     """VAEGAN(**kwargs)
@@ -48,11 +48,15 @@ class VAEGAN(nn.Module):
         h_channels=32, 
         img_dim=32, 
         img_channels=3,
+        n_layers=3,
+        activation="leakyrelu",
+        batch_norm=True,
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
         batch_size=32, 
         vae_type="texture", 
+        optimizer="adam",
         std_approx="exp",
         lr=0.0002,
         betas=[0.5, 0.999],
