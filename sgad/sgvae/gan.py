@@ -167,8 +167,7 @@ class GAN(nn.Module):
         # loss values
         losses_all = {'iter': [], 'epoch': [], 'discloss': [], 'genloss': [], 'fmloss': [], 'auc_val': []}
 
-        # setup save paths
-        
+        # setup save paths        
         if save_path is not None:
             save_results = True
             model_path = Path(save_path)

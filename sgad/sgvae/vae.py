@@ -39,7 +39,7 @@ class VAE(nn.Module):
                  lr=0.0002,
                  betas=[0.5, 0.999],
                  device=None,
-                 log_var_x_estimate = "conv_net",
+                 log_var_x_estimate="conv_net",
                  **kwargs
                 ):
         """
@@ -140,6 +140,7 @@ class VAE(nn.Module):
             verb=True, 
             save_results=True, 
             save_path=None, 
+            save_weights=False,
             workers=12,
             max_train_time=np.inf # in seconds           
            ):
@@ -156,6 +157,12 @@ class VAE(nn.Module):
             shuffle=True, 
             num_workers=workers)
 
+        # check the scale of the data - [-1,1] works best
+        if X.min() >= 0.0:
+            warnings.warn("It is possible that your input X is not scaled to the interval [-1,1], please do so for better performance.")
+        if X_val is not None and X_val.min() >= 0.0:
+            warnings.warn("It is possible that your the validation data X_val is not scaled to the interval [-1,1], please do so for better performance.")
+
         # also check the validation data
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
@@ -165,9 +172,8 @@ class VAE(nn.Module):
         losses_all = {'iter': [], 'epoch': [], 'kld': [], 'logpx': [], 'elbo': [], 'auc_val': []}
 
         # setup save paths
-        if save_results and save_path == None:
-            raise ValueError('If you want to save results, provide the save_path argument.')   
-        if save_results:
+        if save_path is not None:
+            save_results = True
             model_path = Path(save_path)
             weights_path = model_path / 'weights'
             sample_path = model_path / 'samples'
@@ -184,6 +190,8 @@ class VAE(nn.Module):
 
             # samples for reconstruction
             x_sample = X[random.sample(range(X.shape[0]), 30),:,:,:]
+        else:
+            save_results = False
 
         pbar = tqdm(range(n_epochs))
         niter = 0
@@ -223,7 +231,8 @@ class VAE(nn.Module):
                     if batches_done % save_iter == 0:
                         print(f"Saving samples and weights to {model_path}")
                         self.save_sample_images(x_sample, sample_path, batches_done, n_cols=3)
-                        self.save_weights(f"{weights_path}/{batches_done:d}.pth")
+                        if save_weights:
+                            self.save_weights(f"{weights_path}/{batches_done:d}.pth")
                         outdf = pandas.DataFrame.from_dict(losses_all)
                         outdf.to_csv(os.path.join(model_path, "losses.csv"), index=False)
 
