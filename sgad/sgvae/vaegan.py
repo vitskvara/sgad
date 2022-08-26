@@ -79,6 +79,7 @@ class VAEGAN(nn.Module):
         self.input_range = [-1, 1]
         self.device = self.vae.device
         self.z_dim = self.config.z_dim
+        self.best_score_type = None # selected with val data during fit
         
         # seed
         init_seed = self.config.init_seed
@@ -162,7 +163,6 @@ class VAEGAN(nn.Module):
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
         auc_val_d = auc_val_r = auc_val_fm = best_auc_val = -1.0
-        self.best_score_type = None
         best_epoch = n_epochs
         score_types = ['discriminator', 'reconstruction', 'feature_matching']
 
@@ -363,7 +363,13 @@ class VAEGAN(nn.Module):
             workers=workers, shuffle=False)
         return batched_score(self.fm_score, loader, self.device, **kwargs)
     
-    def predict(self, X, score_type="discriminator", **kwargs):
+    def predict(self, X, score_type=None, **kwargs):
+        # if score type not given, try the best score as it was fitted
+        if score_type == None and self.best_score_type == None:
+            score_type = "discriminator"
+        elif not self.best_score_type == None:
+            score_type = self.best_score_type
+
         if score_type == "discriminator":
             return self.discriminator_score(X, **kwargs)
         elif score_type == "feature_matching":
