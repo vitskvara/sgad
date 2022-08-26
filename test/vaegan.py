@@ -79,7 +79,11 @@ class TestAll(unittest.TestCase):
         model = VAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64)
 
         # fit
-        losses_all, _, _ = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, workers=2)
+        losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
+            save_weights=True, workers=2)
+        best_model.move_to(model.device)
+        self.assertTrue(best_epoch == 3)
+        self.assertTrue(all_equal_params(model, best_model))
 
         # some prerequisites
         n = 10
@@ -138,6 +142,7 @@ class TestAll(unittest.TestCase):
         self.assertTrue(all_equal_params(model.vae.log_var_net_x, cmodel.vae.log_var_net_x))
         self.assertTrue(all_nonequal_params(model.discriminator, cmodel.discriminator))
 
+        # global log var
         model, xo, zo = test_args(tr_X, log_var_x_estimate="global")
         cmodel = model.cpu_copy()
         cmodel.move_to(model.device)

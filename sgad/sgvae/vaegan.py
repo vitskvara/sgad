@@ -96,18 +96,19 @@ class VAEGAN(nn.Module):
         )
 
         # modules for param groups
+        dlist = [self.vae.decoder, self.vae.mu_net_x]
+        if self.config.log_var_x_estimate == "conv_net":
+            dlist.append(self.vae.log_var_net_x)  
+        else: 
+            dlist.append(self.vae.log_var_x_global)  
         self.params = nn.ModuleDict({
                "encoder" : nn.ModuleList([
                    self.vae.encoder,
                    self.vae.mu_net_z,
                    self.vae.log_var_net_z
                ]),
-               "decoder" : nn.ModuleList([
-                   self.vae.decoder,
-                   self.vae.mu_net_x,
-                   self.vae.log_var_net_x
-               ]),
-                "discriminator": self.discriminator
+               "decoder" : nn.ModuleList(dlist),
+               "discriminator": self.discriminator
         })
         
         # optimizer
@@ -159,9 +160,17 @@ class VAEGAN(nn.Module):
         else:
             save_results = False
 
+        # for early stopping
+        if X_val is not None and y_val is None:
+            raise ValueError("X_val given without y_val - please provide it as well.")
+        auc_val_d = auc_val_r = auc_val_fm = best_auc_val = -1.0
+        self.best_score_type = None
+        best_epoch = n_epochs
+        score_types = ['discriminator', 'reconstruction', 'feature_matching']
+
         # loss logging
         losses_all = {'iter': [], 'epoch': [], 'encl': [], 'decl': [], 'discl': [], 'kld': [], 'genl': [],
-             'fml': [], 'xmax': []}
+             'fml': [], 'xmax': [], 'auc_val_d': [], 'auc_val_r': [], 'auc_val_fm': []}
 
         self.train()
         pbar = tqdm(range(n_epochs))
@@ -174,7 +183,7 @@ class VAEGAN(nn.Module):
 
                 # log losses
                 niter += 1
-                self.log_losses(losses_all, niter, epoch, *loss_vals)
+                self.log_losses(losses_all, niter, epoch, auc_val_d, auc_val_r, auc_val_fm, *loss_vals)
 
                 # output
                 if verb:                
@@ -196,12 +205,37 @@ class VAEGAN(nn.Module):
                 if run_time > max_train_time:
                     break
 
+            # after every epoch, compute the val auc
+            if X_val is not None:
+                self.eval()
+                scores_val_d = self.predict(X_val, score_type='discriminator', workers=workers)
+                auc_val_d = compute_auc(y_val, scores_val_d)
+                scores_val_r = self.predict(X_val, score_type='reconstruction', workers=workers, n=10)
+                auc_val_r = compute_auc(y_val, scores_val_r)
+                scores_val_fm = self.predict(X_val, score_type='feature_matching', workers=workers, n=10)
+                auc_val_fm = compute_auc(y_val, scores_val_fm)
+                # also copy the params
+
+                for (auc_val, score_type) in zip((auc_val_d, auc_val_r, auc_val_fm), score_types):
+                    if auc_val > best_auc_val:
+                        best_model = self.cpu_copy()
+                        best_epoch = epoch+1
+                        best_auc_val = auc_val
+                        self.best_score_type = score_type
+                self.train()
+
             # exit if running for too long
             if run_time > max_train_time:
                 print("Given runtime exceeded, ending training prematurely.")
                 break
 
-        return losses_all, None, None
+        # finally return self copy if we did not track validation performance 
+        if X_val is None:
+            best_model = self.cpu_copy()
+            best_model.eval()
+            best_epoch = n_epochs
+
+        return losses_all, best_model, best_epoch
 
     def update_step(self, x):
         ### encoder block ###
@@ -251,7 +285,8 @@ class VAEGAN(nn.Module):
 
         return el, decl, dl, kld, gl, fml, xmax
 
-    def log_losses(self, losses_all, niter, epoch, el, decl, dl, kld, gl, fml, xmax):
+    def log_losses(self, losses_all, niter, epoch, auc_val_d, auc_val_r, auc_val_fm, 
+        el, decl, dl, kld, gl, fml, xmax):
         losses_all['iter'].append(niter)
         losses_all['epoch'].append(epoch)
         losses_all['encl'].append(get_float(el))
@@ -261,8 +296,12 @@ class VAEGAN(nn.Module):
         losses_all['genl'].append(get_float(gl))
         losses_all['fml'].append(get_float(fml))
         losses_all['xmax'].append(get_float(xmax))
+        losses_all['auc_val_d'].append(auc_val_d)
+        losses_all['auc_val_r'].append(auc_val_r)
+        losses_all['auc_val_fm'].append(auc_val_fm)
 
-    def print_output(self, pbar, i, tr_loader, el, decl, dl, kld, gl, fml, xmax):
+    def print_output(self, pbar, i, tr_loader, auc_val_d, auc_val_r, auc_val_fm, 
+        el, decl, dl, kld, gl, fml, xmax):
         msg = f"[Batch {i}/{len(tr_loader)}]"
         msg += ''.join(f"[enc: {get_float(el):.3f}]")
         msg += ''.join(f"[dec: {get_float(decl):.3f}]")
@@ -270,6 +309,9 @@ class VAEGAN(nn.Module):
         msg += ''.join(f"[kld: {get_float(kld):.3f}]")
         msg += ''.join(f"[gen: {get_float(gl):.3f}]")
         msg += ''.join(f"[fml: {get_float(fml):.3f}]")
+        msg += ''.join(f"[auc_r: {auc_val_r:.3f}]")
+        msg += ''.join(f"[auc_d: {auc_val_d:.3f}]")
+        msg += ''.join(f"[auc_fm: {auc_val_fm:.3f}]")
         pbar.set_description(msg)
 
     def clamp(self, x):
