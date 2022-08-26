@@ -25,16 +25,57 @@ def test_args(X, **kwargs):
     xh = model.decode(z)
     zh = model.encode(x)
     xs = np.array(x.size())
-    xs[1] = model.out_channels
+    xs[1] = model.vae.out_channels
     return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
 
-model, xo, zo = test_args(tr_X)
-
 class TestAll(unittest.TestCase):
+    def test_args(self):        
+        model, xo, zo = test_args(tr_X)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 12)
+        self.assertTrue(len(model.vae.encoder) == 13)
+        self.assertTrue(len(model.discriminator) == 11)
+
+        model, xo, zo = test_args(tr_X, n_layers=4)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 15)
+        self.assertTrue(len(model.vae.decoder) == 17)
+        self.assertTrue(len(model.discriminator) == 14)
+
+        model, xo, zo = test_args(tr_X, n_layers=4, batch_norm=False)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 11)
+        self.assertTrue(len(model.vae.decoder) == 13)
+        self.assertTrue(len(model.discriminator) == 11)
+
+        model, xo, zo = test_args(tr_X, n_layers=3, batch_norm=False)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 9)
+        self.assertTrue(len(model.vae.decoder) == 10)
+        self.assertTrue(len(model.discriminator) == 9)
+
+        model, xo, zo = test_args(tr_X, n_layers=3, batch_norm=False, vae_type="shape")
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 9)
+        self.assertTrue(len(model.vae.decoder) == 8)
+        self.assertTrue(len(model.discriminator) == 9)
+
+        model, xo, zo = test_args(tr_X, n_layers=3, batch_norm=False, vae_type="shape", activation="tanh")
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        self.assertTrue(len(model.vae.encoder) == 9)
+        self.assertTrue(len(model.vae.decoder) == 8)
+        self.assertTrue(all(model.vae.decoder[4](torch.Tensor([3000])) == torch.Tensor([1])))
+        self.assertTrue(len(model.discriminator) == 9)
+
     def test_default(self):
         # construct
-        model = VAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
-                       input_range=[-1, 1])
+        model = VAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64)
 
         # fit
         losses_all, _, _ = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, workers=2)
