@@ -22,12 +22,11 @@ def test_args(X, **kwargs):
     model = VAEGAN(**kwargs)
     x = torch.tensor(X[:n]).to(model.device)
     z = torch.randn((n,model.z_dim)).to(model.device)
-    xh = model.decoded(z)
-    zh = model.encoded(x)
+    xh = model.decode(z)
+    zh = model.encode(x)
     xs = np.array(x.size())
     xs[1] = model.out_channels
     return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
-
 
 model, xo, zo = test_args(tr_X)
 

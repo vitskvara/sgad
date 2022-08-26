@@ -278,6 +278,9 @@ class VAEGAN(nn.Module):
     def reconstruct(self, x):
         return self.clamp(self.vae.reconstruct_mean(x))
 
+    def encode(self, z):
+        return self.vae.encoded(z)
+
     def decode(self, z):
         return self.clamp(self.vae.decode(z)[0])
 
