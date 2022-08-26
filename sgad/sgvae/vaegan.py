@@ -43,7 +43,6 @@ class VAEGAN(nn.Module):
     kwargs = 
         fm_alpha=0.0,
         fm_depth=7,
-        input_range=[0,1],
         z_dim=32, 
         h_channels=32, 
         img_dim=32, 
@@ -77,8 +76,7 @@ class VAEGAN(nn.Module):
         self.config = copy.deepcopy(self.vae.config)
         self.config.fm_alpha = fm_alpha
         self.config.fm_depth = fm_depth
-        self.config.input_range = [-1, 1]
-        self.input_range = input_range
+        self.input_range = [-1, 1]
         self.device = self.vae.device
         self.z_dim = self.config.z_dim
         
