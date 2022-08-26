@@ -138,3 +138,13 @@ class TestAll(unittest.TestCase):
         self.assertTrue(all_equal_params(model.vae.log_var_net_x, cmodel.vae.log_var_net_x))
         self.assertTrue(all_nonequal_params(model.discriminator, cmodel.discriminator))
 
+        model, xo, zo = test_args(tr_X, log_var_x_estimate="global")
+        cmodel = model.cpu_copy()
+        cmodel.move_to(model.device)
+
+        x = torch.tensor(tr_X[:32]).to(model.device)
+        loss_vals = model.update_step(x)
+
+        # since this is not trained at all
+        self.assertTrue(all_equal_params(model.vae.log_var_x_global, cmodel.vae.log_var_x_global))
+
