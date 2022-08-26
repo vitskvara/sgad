@@ -122,7 +122,7 @@ class VAEGAN(nn.Module):
         # move to device
         self.move_to(self.device)
 
-    def fit(self, X,
+    def fit(self, X, X_val=None, y_val=None,
             n_epochs=100, 
             save_iter=1000, 
             verb=True, 
