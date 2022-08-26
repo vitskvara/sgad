@@ -5,6 +5,7 @@ import os
 import torch 
 import shutil
 from torch import nn
+import copy
 
 from sgad.sgvae import VAEGAN
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
@@ -34,7 +35,7 @@ class TestAll(unittest.TestCase):
         self.assertTrue(xo)
         self.assertTrue(zo)
         self.assertTrue(len(model.vae.encoder) == 12)
-        self.assertTrue(len(model.vae.encoder) == 13)
+        self.assertTrue(len(model.vae.decoder) == 13)
         self.assertTrue(len(model.discriminator) == 11)
 
         model, xo, zo = test_args(tr_X, n_layers=4)
@@ -118,3 +119,22 @@ class TestAll(unittest.TestCase):
         self.assertTrue(model.config == model_new.config)
         all_equal_params(model, model_new)
         shutil.rmtree(_tmp)
+
+
+    def test_cpu_copy(self):
+        model, xo, zo = test_args(tr_X, log_var_x_estimate="conv_net")
+        cmodel = model.cpu_copy()
+        cmodel.move_to(model.device)
+
+        x = torch.tensor(tr_X[:32]).to(model.device)
+        loss_vals = model.update_step(x)
+
+        self.assertTrue(all_nonequal_params(model.vae.encoder, cmodel.vae.encoder))
+        self.assertTrue(all_nonequal_params(model.vae.mu_net_z, cmodel.vae.mu_net_z))
+        self.assertTrue(all_nonequal_params(model.vae.log_var_net_x, cmodel.vae.log_var_net_z))
+        self.assertTrue(all_nonequal_params(model.vae.decoder, cmodel.vae.decoder))
+        self.assertTrue(all_nonequal_params(model.vae.mu_net_x, cmodel.vae.mu_net_x))
+        # since this is not trained at all
+        self.assertTrue(all_equal_params(model.vae.log_var_net_x, cmodel.vae.log_var_net_x))
+        self.assertTrue(all_nonequal_params(model.discriminator, cmodel.discriminator))
+

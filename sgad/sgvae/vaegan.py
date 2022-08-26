@@ -392,3 +392,8 @@ class VAEGAN(nn.Module):
         self.vae.move_to(device)
         self.discriminator = self.discriminator.to(device)
         self = self.to(device)
+
+    def cpu_copy(self):
+        cp = copy.deepcopy(self)
+        cp.move_to("cpu")
+        return cp
