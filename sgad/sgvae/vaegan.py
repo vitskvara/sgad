@@ -367,7 +367,7 @@ class VAEGAN(nn.Module):
         # if score type not given, try the best score as it was fitted
         if score_type == None and self.best_score_type == None:
             score_type = "discriminator"
-        elif not self.best_score_type == None:
+        elif score_type == None and not self.best_score_type == None:
             score_type = self.best_score_type
 
         if score_type == "discriminator":
