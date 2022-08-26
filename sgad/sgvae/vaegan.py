@@ -187,7 +187,7 @@ class VAEGAN(nn.Module):
 
                 # output
                 if verb:                
-                    self.print_output(pbar, i, tr_loader, *loss_vals)
+                    self.print_output(pbar, i, tr_loader, auc_val_d, auc_val_r, auc_val_fm, *loss_vals)
 
                 # saving weights and sample images
                 batches_done = epoch * len(tr_loader) + i
