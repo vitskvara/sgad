@@ -151,5 +151,4 @@ class TestAll(unittest.TestCase):
         loss_vals = model.update_step(x)
 
         # since this is not trained at all
-        self.assertTrue(all_equal_params(model.vae.log_var_x_global, cmodel.vae.log_var_x_global))
-
+        self.assertTrue(model.vae.log_var_x_global == cmodel.vae.log_var_x_global)
