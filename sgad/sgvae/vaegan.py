@@ -66,7 +66,6 @@ class VAEGAN(nn.Module):
     def __init__(self, 
             fm_alpha=1.0,
             fm_depth=7,
-            input_range=[0,1],
             **kwargs):
         # supertype init
         super(VAEGAN, self).__init__()
@@ -78,7 +77,7 @@ class VAEGAN(nn.Module):
         self.config = copy.deepcopy(self.vae.config)
         self.config.fm_alpha = fm_alpha
         self.config.fm_depth = fm_depth
-        self.config.input_range = input_range
+        self.config.input_range = [-1, 1]
         self.input_range = input_range
         self.device = self.vae.device
         self.z_dim = self.config.z_dim
@@ -92,9 +91,12 @@ class VAEGAN(nn.Module):
         self.discriminator = Discriminator(
             self.config.img_channels, 
             self.config.h_channels, 
-            self.config.img_dim
+            self.config.img_dim,
+            activation=self.config.activation,
+            batch_norm=self.config.batch_norm,
+            n_layers=self.config.n_layers            
         )
-        
+
         # modules for param groups
         self.params = nn.ModuleDict({
                "encoder" : nn.ModuleList([
@@ -112,9 +114,9 @@ class VAEGAN(nn.Module):
         
         # optimizer
         self.opts = Optimizers()
-        self.opts.set('encoder', self.params.encoder, lr=self.config.lr, betas=self.config.betas)
-        self.opts.set('decoder', self.params.decoder, lr=self.config.lr, betas=self.config.betas)
-        self.opts.set('discriminator', self.params.discriminator, lr=self.config.lr, betas=self.config.betas)        
+        self.opts.set('encoder', self.params.encoder, opt=self.config.optimizer, lr=self.config.lr, betas=self.config.betas)
+        self.opts.set('decoder', self.params.decoder, opt=self.config.optimizer, lr=self.config.lr, betas=self.config.betas)
+        self.opts.set('discriminator', self.params.discriminator, opt=self.config.optimizer, lr=self.config.lr, betas=self.config.betas)        
         
         # reset seed
         torch.random.seed()
@@ -126,8 +128,8 @@ class VAEGAN(nn.Module):
             n_epochs=100, 
             save_iter=1000, 
             verb=True, 
-            save_weights=False,
             save_path=None, 
+            save_weights=False,
             workers=1,
             max_train_time=np.inf # in seconds           
            ):
@@ -136,10 +138,11 @@ class VAEGAN(nn.Module):
 
         Returns (losses_all, best_model, best_epoch)
         """
-        # first check if the data is as expected
-        range_tol = 0.1
-        if (X.max() < self.input_range[1] - range_tol) or (X.min() > self.input_range[0] + range_tol):
-            raise ValueError(f'Expected data in range {self.input_range}, obtained [{X.min()}, {X.max()}]')
+        # check the scale of the data - [-1,1] works best
+        if X.min() >= 0.0:
+            warnings.warn("It is possible that your input X is not scaled to the interval [-1,1], please do so for better performance.")
+        if X_val is not None and X_val.min() >= 0.0:
+            warnings.warn("It is possible that your the validation data X_val is not scaled to the interval [-1,1], please do so for better performance.")
 
         # setup the dataloader
         y = torch.zeros(X.shape[0]).long()

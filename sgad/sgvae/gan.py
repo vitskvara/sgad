@@ -135,7 +135,6 @@ class GAN(nn.Module):
             n_epochs=50, 
             save_iter=1000, 
             verb=True, 
-            save_results=True, 
             save_path=None, 
             save_weights=False,
             workers=12,
