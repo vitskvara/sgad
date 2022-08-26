@@ -208,9 +208,9 @@ class VAEGAN(nn.Module):
                 self.eval()
                 scores_val_d = self.predict(X_val, score_type='discriminator', workers=workers)
                 auc_val_d = compute_auc(y_val, scores_val_d)
-                scores_val_r = self.predict(X_val, score_type='reconstruction', workers=workers, n=10)
+                scores_val_r = self.predict(X_val, score_type='reconstruction', workers=workers, n=4)
                 auc_val_r = compute_auc(y_val, scores_val_r)
-                scores_val_fm = self.predict(X_val, score_type='feature_matching', workers=workers, n=10)
+                scores_val_fm = self.predict(X_val, score_type='feature_matching', workers=workers, n=4)
                 auc_val_fm = compute_auc(y_val, scores_val_fm)
                 # also copy the params
 
