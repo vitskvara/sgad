@@ -97,10 +97,8 @@ class VAEGAN(nn.Module):
 
         # modules for param groups
         dlist = [self.vae.decoder, self.vae.mu_net_x]
-        if self.config.log_var_x_estimate == "conv_net":
-            dlist.append(self.vae.log_var_net_x)  
-        else: 
-            dlist.append(self.vae.log_var_x_global)  
+        # we could also append the global log var x here butit not trained anway, just like this
+        dlist.append(self.vae.log_var_net_x) if self.config.log_var_x_estimate == "conv_net" else None
         self.params = nn.ModuleDict({
                "encoder" : nn.ModuleList([
                    self.vae.encoder,
