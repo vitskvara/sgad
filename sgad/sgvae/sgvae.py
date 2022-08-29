@@ -830,7 +830,7 @@ class SGVAE(nn.Module):
         cp.vae_background = self.vae_background.cpu_copy()
         cp.vae_foreground = self.vae_foreground.cpu_copy()
         if self.config.log_var_x_estimate_top == "global":
-           cp.log_var_x_global = self.log_var_x_global.cpu()
+           cp.log_var_x_global.data = self.log_var_x_global.data.cpu()
         else:
            cp.log_var_net_x = self.log_var_net_x.to("cpu")
            self.log_var_net_x.to(self.device)
