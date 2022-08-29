@@ -223,7 +223,7 @@ class SGVAE(nn.Module):
             # after every epoch, compute the val auc
             if X_val is not None:
                 self.eval()
-                scores_val = self.predict(X_val_sub, score_type='logpx', num_workers=workers, n=4)
+                scores_val = self.predict(X_val_sub, score_type='logpx', workers=workers, n=4)
                 auc_val = compute_auc(y_val_sub, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:

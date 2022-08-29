@@ -152,7 +152,7 @@ class TestUtils(unittest.TestCase):
         # tests
         self.assertTrue(not all_equal_params(model, cmodel))
         self.assertTrue(not all_nonequal_params(model, cmodel))
-        self.assertTrue(all_nonequal_params(model.vae_shape, cmodel.vae_shape))
+        self.assertTrue(not all_nonequal_params(model.vae_shape, cmodel.vae_shape))
         self.assertTrue(all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z))
