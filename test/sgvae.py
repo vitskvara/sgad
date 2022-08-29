@@ -29,28 +29,6 @@ def test_args(X, **kwargs):
     xs[1] = model.vae_background.out_channels
     return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
 
-model, xo, zo = test_args(tr_X)
-
-cmodel = copy.deepcopy(model)
-cmodel = model.cpu_copy()
-all_equal_params(model, cmodel)
-
-batch = {'ims': torch.tensor(tr_X[:32])}
-iepoch = 1
-l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f = model.train_step_independent(
-    batch, iepoch)
-    
-not all_equal_params(model, cmodel)
-not all_nonequal_params(model, cmodel)
-all_nonequal_params(model.vae_shape, cmodel.vae_shape)
-all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder)
-all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder)
-all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z)
-all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x)
-all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z)
-all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x)
-
-(model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0]
 
 
 model, xo, zo = test_args(tr_X)
@@ -65,6 +43,8 @@ if model.config.log_var_x_estimate_top == "global":
 else:
    cmodel.log_var_net_x = model.log_var_net_x.to("cpu")
    model.log_var_net_x.to(model.device)
+cmodel.alpha = copy.deepcopy(model.alpha)
+cmodel.opts.set('sgvae', cmodel, opt=cmodel.config.optimizer, lr=cmodel.config.lr, betas=cmodel.config.betas)        
 
 
 class TestConstructor(unittest.TestCase):
@@ -135,6 +115,50 @@ class TestUtils(unittest.TestCase):
         self.assertTrue((model.encode(x)[0][0] == _model.encode(x)[0][0]).all().item())
         zs = [torch.ones(1,32) for _ in range(3)]
         self.assertTrue((model.decode(zs)[2][0] == _model.decode(zs)[2][0]).all().item())
+
+        # an advanced test
+        model, xo, zo = test_args(tr_X)
+        cmodel = copy.deepcopy(model)
+        cmodel = model.cpu_copy()
+        self.assertTrue(all_equal_params(model, cmodel))
+        # make an update
+        batch = {'ims': torch.tensor(tr_X[:32])}
+        iepoch = 1
+        l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f = model.train_step_independent(
+            batch, iepoch)
+        # tests
+        self.assertTrue(not all_equal_params(model, cmodel))
+        self.assertTrue(not all_nonequal_params(model, cmodel))
+        self.assertTrue(all_nonequal_params(model.vae_shape, cmodel.vae_shape))
+        self.assertTrue(all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x))
+        self.assertTrue(all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z))
+        self.assertTrue(all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x))
+        self.assertTrue((model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0])
+
+        # do it again
+        model, xo, zo = test_args(tr_X, log_var_x_estimate_top="conv_net")
+        cmodel = copy.deepcopy(model)
+        cmodel = model.cpu_copy()
+        self.assertTrue(all_equal_params(model, cmodel))
+        # make an update
+        batch = {'ims': torch.tensor(tr_X[:32])}
+        iepoch = 1
+        l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f = model.train_step_independent(
+            batch, iepoch)
+        # tests
+        self.assertTrue(not all_equal_params(model, cmodel))
+        self.assertTrue(not all_nonequal_params(model, cmodel))
+        self.assertTrue(all_nonequal_params(model.vae_shape, cmodel.vae_shape))
+        self.assertTrue(all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z))
+        self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x))
+        self.assertTrue(all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z))
+        self.assertTrue(all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x))
+        self.assertTrue((model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0])
 
     def test_load_from_cfg(self):
         # first test loading of the config files
