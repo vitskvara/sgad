@@ -152,3 +152,29 @@ class TestAll(unittest.TestCase):
 
         # since this is not trained at all
         self.assertTrue(model.vae.log_var_x_global == cmodel.vae.log_var_x_global)
+
+    def test_val_fit(self):
+        # construct
+        model = VAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64)
+
+        # fit
+        losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
+            save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_Samples=1000)
+        best_model.move_to(model.device)
+        self.assertTrue(best_epoch == 3)
+        self.assertTrue(all_equal_params(model, best_model))
+        
+        # scores
+        disc_score = model.predict(tst_X, score_type="discriminator", workers=2)
+        rec_score = model.predict(tst_X, score_type="reconstruction", workers=2, n=5)
+        fm_score = model.predict(tst_X, score_type="feature_matching", workers=2, n=5)
+        disc_auc = compute_auc(tst_y, disc_score)
+        rec_auc = compute_auc(tst_y, rec_score)
+        fm_auc = compute_auc(tst_y, fm_score)
+        self.assertTrue(disc_auc > 0.5)
+        self.assertTrue(rec_auc > 0.5)
+        self.assertTrue(fm_auc > 0.5)
+
+        # cleanup
+        shutil.rmtree(_tmp)
+

@@ -30,12 +30,16 @@ class SGVAE(nn.Module):
         h_channels=32, 
         img_dim=32, 
         img_channels=3,
+        n_layers=3,
+        activation="leakyrelu",
+        batch_norm=True, 
         weights_texture = [0.01, 0.05, 0.0, 0.01], 
         weight_binary=1.0,
         weight_mask=1.0,
         tau_mask=0.1,       
         log_var_x_estimate_top = "global",
         alpha = None,
+        optimizer="adam",
         latent_structure="independent",
         fixed_mask_epochs=1,
         init_type='orthogonal', 
@@ -52,7 +56,6 @@ class SGVAE(nn.Module):
             weight_binary=1.0,
             weight_mask=1.0, 
             tau_mask=0.1, 
-            std_approx="exp", 
             device=None, 
             latent_structure="independent", 
             fixed_mask_epochs=1,
@@ -63,9 +66,9 @@ class SGVAE(nn.Module):
         super(SGVAE, self).__init__()
                 
         # vaes
-        self.vae_shape = VAE(vae_type="shape", std_approx=std_approx, **kwargs)
-        self.vae_background = VAE(vae_type="texture", std_approx=std_approx, **kwargs)
-        self.vae_foreground = VAE(vae_type="texture", std_approx=std_approx, **kwargs)
+        self.vae_shape = VAE(vae_type="shape", **kwargs)
+        self.vae_background = VAE(vae_type="texture", **kwargs)
+        self.vae_foreground = VAE(vae_type="texture", **kwargs)
         
         # config
         self.config = copy.deepcopy(self.vae_background.config)
@@ -115,7 +118,7 @@ class SGVAE(nn.Module):
 
         # optimizer
         self.opts = Optimizers()
-        self.opts.set('sgvae', self, lr=self.config.lr, betas=self.config.betas)        
+        self.opts.set('sgvae', self, opt=self.config.optimizer, lr=self.config.lr, betas=self.config.betas)        
         
         # alphas for joint prediction
         self.set_alpha(alpha, alpha_score_type=None)
@@ -134,7 +137,8 @@ class SGVAE(nn.Module):
             save_weights=False,
             save_path=None, 
             workers=12,
-            max_train_time=np.inf # in seconds           
+            max_train_time=np.inf, # in seconds           
+            val_samples=None
            ):
         """Fit the model given X (and possibly y).
 
@@ -149,9 +153,20 @@ class SGVAE(nn.Module):
             shuffle=True, 
             num_workers=workers)
         
+        # check the scale of the data - [-1,1] works best
+        if X.min() >= 0.0:
+            warnings.warn("It is possible that your input X is not scaled to the interval [-1,1], please do so for better performance.")
+        if X_val is not None and X_val.min() >= 0.0:
+            warnings.warn("It is possible that your the validation data X_val is not scaled to the interval [-1,1], please do so for better performance.")
+        
         # also check the validation data
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
+        if val_samples is None:
+            X_val_sub = X_val 
+            y_val_sub = y_val
+        else:
+            X_val_sub, y_val_sub = subsample_same(X_val,y_val,val_samples)
         auc_val = best_auc_val = -1.0
         
         # loss values, n_epochs, save_iter, workers
@@ -170,6 +185,7 @@ class SGVAE(nn.Module):
             save_results = False
 
         # tracking
+        self.train()
         pbar = tqdm(range(n_epochs))
         niter = 0
         start_time = time.time()
