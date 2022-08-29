@@ -198,3 +198,14 @@ def all_nonequal_params(m1, m2):
 def get_float(t):
     return float(t.data.cpu().numpy())
 
+# subsample both classes the same
+def subsample_same(X,y,n):
+    # subsample it - both classes the same amount
+    n1 = sum(y).astype('int')
+    n0 = (len(y) - n1).astype('int')
+    nc = np.minimum(np.minimum(np.floor(n / 2).astype('int'), n1), n0)
+    inds0 = np.array(random.sample(range(n0), nc))
+    inds1 = np.array(random.sample(range(n1), nc))
+    X_sub = np.concatenate((X[y == 0][inds0], X[y == 1][inds1]), 0)
+    y_sub = np.concatenate((y[y == 0][inds0], y[y == 1][inds1]), 0)
+    return X_sub, y_sub

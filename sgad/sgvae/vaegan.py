@@ -17,7 +17,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE, feature_matching_loss
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
-from sgad.sgvae.utils import Discriminator, get_float, create_score_loader
+from sgad.sgvae.utils import Discriminator, get_float, create_score_loader, subsample_same
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -129,7 +129,8 @@ class VAEGAN(nn.Module):
             save_path=None, 
             save_weights=False,
             workers=1,
-            max_train_time=np.inf # in seconds           
+            max_train_time=np.inf, # in seconds           
+            val_samples=None
            ):
 
         """Fit the model given data X.
@@ -162,6 +163,11 @@ class VAEGAN(nn.Module):
         # for early stopping
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
+        if val_samples is None:
+            X_val_sub = X_val 
+            y_val_sub = y_val
+        else:
+            X_val_sub, y_val_sub = subsample_same(X_val,y_val,val_samples)
         auc_val_d = auc_val_r = auc_val_fm = best_auc_val = -1.0
         best_epoch = n_epochs
         score_types = ['discriminator', 'reconstruction', 'feature_matching']
@@ -206,12 +212,12 @@ class VAEGAN(nn.Module):
             # after every epoch, compute the val auc
             if X_val is not None:
                 self.eval()
-                scores_val_d = self.predict(X_val, score_type='discriminator', workers=workers)
-                auc_val_d = compute_auc(y_val, scores_val_d)
-                scores_val_r = self.predict(X_val, score_type='reconstruction', workers=workers, n=4)
-                auc_val_r = compute_auc(y_val, scores_val_r)
-                scores_val_fm = self.predict(X_val, score_type='feature_matching', workers=workers, n=4)
-                auc_val_fm = compute_auc(y_val, scores_val_fm)
+                scores_val_d = self.predict(X_val_sub, score_type='discriminator', workers=workers)
+                auc_val_d = compute_auc(y_val_sub, scores_val_d)
+                scores_val_r = self.predict(X_val_sub, score_type='reconstruction', workers=workers, n=4)
+                auc_val_r = compute_auc(y_val_sub, scores_val_r)
+                scores_val_fm = self.predict(X_val_sub, score_type='feature_matching', workers=workers, n=4)
+                auc_val_fm = compute_auc(y_val_sub, scores_val_fm)
                 # also copy the params
 
                 for (auc_val, score_type) in zip((auc_val_d, auc_val_r, auc_val_fm), score_types):
