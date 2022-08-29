@@ -17,7 +17,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
-from sgad.sgvae.utils import create_score_loader
+from sgad.sgvae.utils import create_score_loader, subsample_same
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 
@@ -223,8 +223,8 @@ class SGVAE(nn.Module):
             # after every epoch, compute the val auc
             if X_val is not None:
                 self.eval()
-                scores_val = self.predict(X_val, score_type='logpx', num_workers=workers, n=10)
-                auc_val = compute_auc(y_val, scores_val)
+                scores_val = self.predict(X_val_sub, score_type='logpx', num_workers=workers, n=4)
+                auc_val = compute_auc(y_val_sub, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:
                     best_model = self.cpu_copy()
