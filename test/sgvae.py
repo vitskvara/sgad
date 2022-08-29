@@ -129,12 +129,13 @@ class TestUtils(unittest.TestCase):
         # tests
         self.assertTrue(not all_equal_params(model, cmodel))
         self.assertTrue(not all_nonequal_params(model, cmodel))
-        self.assertTrue(all_nonequal_params(model.vae_shape, cmodel.vae_shape))
+        self.assertTrue(not all_nonequal_params(model.vae_shape, cmodel.vae_shape))
         self.assertTrue(all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder))
         self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z))
         self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x))
         self.assertTrue(all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z))
+        # because this is not trained
         self.assertTrue(all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x))
         self.assertTrue((model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0])
 
@@ -290,6 +291,25 @@ class TestFitPredict(unittest.TestCase):
         sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", probability=True, workers=4)
         
         os.remove("_alpha.npy")
+        shutil.rmtree(_tmp)
+
+    def test_val_fit(self):
+        # construct
+        model = SGVAE()
+
+        # fit
+        losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
+            save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_samples=1000)
+        best_model.move_to(model.device)
+        self.assertTrue(best_epoch == 3)
+        self.assertTrue(all_equal_params(model, best_model))
+        
+        # scores
+        score = model.predict(tst_X, workers=2, n=5)
+        auc = compute_auc(tst_y, score)
+        self.assertTrue(auc > 0.5)
+
+        # cleanup
         shutil.rmtree(_tmp)
 
 class TestParams(unittest.TestCase):
