@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
 import warnings
 import functools
+import random
 
 from sgad.cgn.models.cgn import Reshape, UpsampleBlock, lin_block, shape_layers, texture_layers
 from sgad.cgn.models.cgn import get_norm_layer
