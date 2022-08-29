@@ -159,7 +159,7 @@ class TestAll(unittest.TestCase):
 
         # fit
         losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
-            save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_Samples=1000)
+            save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_samples=1000)
         best_model.move_to(model.device)
         self.assertTrue(best_epoch == 3)
         self.assertTrue(all_equal_params(model, best_model))
