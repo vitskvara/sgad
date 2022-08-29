@@ -23,11 +23,34 @@ def test_args(X, **kwargs):
     model = SGVAE(**kwargs)
     x = torch.tensor(X[:n]).to(model.device)
     z = torch.randn((n,model.z_dim)).to(model.device)
-    xh = model.decode(z)
-    zh = model.encode(x)
+    xh = model.decode_image((z,z,z))
+    zh = model.encoded(x)
     xs = np.array(x.size())
-    xs[1] = model.vae.out_channels
-    return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
+    xs[1] = model.vae_background.out_channels
+    return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
+
+model, xo, zo = test_args(tr_X)
+
+cmodel = copy.deepcopy(model)
+all_equal_params(model, cmodel)
+
+batch = {'ims': torch.tensor(tr_X[:32])}
+iepoch = 1
+l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f = model.train_step_independent(
+    batch, iepoch)
+    
+all_equal_params(model, cmodel)
+all_nonequal_params(model, cmodel)
+all_nonequal_params(model.vae_shape, cmodel.vae_shape)
+all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder)
+all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder)
+all_nonequal_params(model.vae_shape.mu_net_z, cmodel.vae_shape.mu_net_z)
+all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x)
+all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z)
+all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x)
+
+(model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0]
+
 
 class TestConstructor(unittest.TestCase):
     def _test_vae(self, vae, shape=False):
@@ -206,7 +229,7 @@ class TestFitPredict(unittest.TestCase):
         sa = model.predict(Xa, n=2, score_type="logpx", latent_score_type="normal", probability=True, 
             workers=4)
         s = np.concatenate((sn, sa))
-        y = (np.concatenate((yn, ya)) != nc).astype('int')
+        y = np.concatenate((yn, ya)).astype('int')
         self.assertTrue(compute_auc(y, s) > 0.5)
         self.assertTrue((0.0 <= s).all() and (s  <= 1.0).all())
 

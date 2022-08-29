@@ -112,7 +112,7 @@ class SGVAE(nn.Module):
             init_net(self.log_var_net_x, init_type=self.config.init_type, init_gain=self.config.init_gain)
         elif log_var_x_estimate_top == "global":
             self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
-            self.log_var_net_x = lambda x: self.log_var_x_global
+            self.log_var_net_x = self.get_global_var_x
         else:
             warnings.warn(f"log_var_x_estimate_top {log_var_x_estimate_top} not known, you should set .log_var_net_x with a callable function")
 
@@ -408,7 +408,10 @@ class SGVAE(nn.Module):
             return torch.exp(log_var/2)
         else:
             return torch.nn.Softplus(log_var/2) + np.float32(1e-6)
-       
+
+    def get_global_var_x(self, x):
+        return self.log_var_x_global
+
     def _encode(self, vae, x):
         """Returns sampled z and kld for given vae."""
         mu_z, log_var_z = vae.encode(x)
@@ -822,10 +825,7 @@ class SGVAE(nn.Module):
         return logreg_prob(scores, self.alpha)
 
     def cpu_copy(self):
-#        device = self.device # save the original device
- #       self.move_to('cpu') # move to cpu
-  #      cp = copy.deepcopy(self)
-   #     self.move_to(device)
-        cp = self
+        cp = copy.deepcopy(self)
+        cp = cp.move_to("cpu")
         return cp
         
