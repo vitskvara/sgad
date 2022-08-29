@@ -33,15 +33,6 @@ class SGVAE(nn.Module):
         n_layers=3,
         activation="leakyrelu",
         batch_norm=True, 
-        weights_texture = [0.01, 0.05, 0.0, 0.01], 
-        weight_binary=1.0,
-        weight_mask=1.0,
-        tau_mask=0.1,       
-        log_var_x_estimate_top = "global",
-        alpha = None,
-        optimizer="adam",
-        latent_structure="independent",
-        fixed_mask_epochs=1,
         init_type='orthogonal', 
         init_gain=0.1, 
         init_seed=None,
@@ -49,6 +40,15 @@ class SGVAE(nn.Module):
         std_approx="exp",
         lr=0.0002,
         betas=[0.5, 0.999],
+        weights_texture = [0.01, 0.05, 0.0, 0.01], 
+        weight_binary=1.0,
+        weight_mask=1.0, 
+        tau_mask=0.1, 
+        device=None, 
+        latent_structure="independent", 
+        fixed_mask_epochs=1,
+        log_var_x_estimate_top = "global",
+        alpha = None, # or any numpy vector
         device=None
     """
     def __init__(self, 
@@ -825,7 +825,16 @@ class SGVAE(nn.Module):
         return logreg_prob(scores, self.alpha)
 
     def cpu_copy(self):
-        cp = copy.deepcopy(self)
-        cp = cp.move_to("cpu")
+        cp = SGVAE(**self.config, device = "cpu")
+        cp.vae_shape = self.vae_shape.cpu_copy()
+        cp.vae_background = self.vae_background.cpu_copy()
+        cp.vae_foreground = self.vae_foreground.cpu_copy()
+        if self.config.log_var_x_estimate_top == "global":
+           cp.log_var_x_global = self.log_var_x_global.cpu()
+        else:
+           cp.log_var_net_x = self.log_var_net_x.to("cpu")
+           self.log_var_net_x.to(self.device)
+        cp.alpha = copy.deepcopy(self.alpha)
+        cp.opts.set('sgvae', cp, opt=self.config.optimizer, lr=self.config.lr, betas=self.config.betas)        
         return cp
         

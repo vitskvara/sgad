@@ -32,6 +32,7 @@ def test_args(X, **kwargs):
 model, xo, zo = test_args(tr_X)
 
 cmodel = copy.deepcopy(model)
+cmodel = model.cpu_copy()
 all_equal_params(model, cmodel)
 
 batch = {'ims': torch.tensor(tr_X[:32])}
@@ -39,8 +40,8 @@ iepoch = 1
 l, elbo, kld, lpx, bin_l, mask_l, text_l, kld_s, kld_b, kld_f = model.train_step_independent(
     batch, iepoch)
     
-all_equal_params(model, cmodel)
-all_nonequal_params(model, cmodel)
+not all_equal_params(model, cmodel)
+not all_nonequal_params(model, cmodel)
 all_nonequal_params(model.vae_shape, cmodel.vae_shape)
 all_nonequal_params(model.vae_shape.encoder, cmodel.vae_shape.encoder)
 all_nonequal_params(model.vae_shape.decoder, cmodel.vae_shape.decoder)
@@ -50,6 +51,20 @@ all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_
 all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x)
 
 (model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0]
+
+
+model, xo, zo = test_args(tr_X)
+model, xo, zo = test_args(tr_X, log_var_x_estimate_top="conv_net")
+
+cmodel = SGVAE(**model.config, device = "cpu")
+cmodel.vae_shape = cmodel.vae_shape.cpu_copy()
+cmodel.vae_background = cmodel.vae_background.cpu_copy()
+cmodel.vae_foreground = cmodel.vae_foreground.cpu_copy()
+if model.config.log_var_x_estimate_top == "global":
+   cmodel.log_var_x_global = model.log_var_x_global.cpu()
+else:
+   cmodel.log_var_net_x = model.log_var_net_x.to("cpu")
+   model.log_var_net_x.to(model.device)
 
 
 class TestConstructor(unittest.TestCase):
