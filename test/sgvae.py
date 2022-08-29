@@ -159,7 +159,6 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(all_nonequal_params(model.vae_shape.mu_net_x, cmodel.vae_shape.mu_net_x))
         self.assertTrue(all_nonequal_params(model.vae_shape.log_var_net_z, cmodel.vae_shape.log_var_net_z))
         self.assertTrue(all_equal_params(model.vae_shape.log_var_net_x, cmodel.vae_shape.log_var_net_x))
-        self.assertTrue((model.log_var_net_x(1).detach().cpu().numpy() != cmodel.log_var_net_x(1).detach().cpu().numpy())[0])
 
     def test_load_from_cfg(self):
         # first test loading of the config files
