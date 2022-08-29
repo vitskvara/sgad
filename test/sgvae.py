@@ -4,9 +4,8 @@ import numpy as np
 import os
 import torch 
 import shutil
-import time
-import copy
 from torch import nn
+import copy
 
 from sgad.sgvae import SGVAE
 from sgad.utils import load_wildlife_mnist, to_img, compute_auc
@@ -14,7 +13,21 @@ from sgad.sgvae.utils import all_equal_params, all_nonequal_params
 from sgad.utils import save_cfg, load_cfg, construct_model, load_model
 
 _tmp = "./_tmp_sgvae"
-X_raw, y_raw = load_wildlife_mnist(denormalize=False)
+ac = 4
+seed = 1
+data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = False)
+(tr_X, tr_y, tr_c), (val_X, val_y, val_c), (tst_X, tst_y, tst_c) = data
+
+def test_args(X, **kwargs):
+    n = 10
+    model = SGVAE(**kwargs)
+    x = torch.tensor(X[:n]).to(model.device)
+    z = torch.randn((n,model.z_dim)).to(model.device)
+    xh = model.decode(z)
+    zh = model.encode(x)
+    xs = np.array(x.size())
+    xs[1] = model.vae.out_channels
+    return model, (xh.size() == xs).all(), zh.size() == (n,model.z_dim)
 
 class TestConstructor(unittest.TestCase):
     def _test_vae(self, vae, shape=False):
@@ -125,11 +138,9 @@ class TestUtils(unittest.TestCase):
 # test saving weights
 class TestFitPredict(unittest.TestCase):
     def test_fit_predict_default(self):
-        nc = 0
-        X = X_raw[y_raw == nc][:1000]
-        model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], lambda_mask=0.3, weight_mask=240.0,
+        model = SGVAE(img_dim=tr_X.shape[2], img_channels=tr_X.shape[1], lambda_mask=0.3, weight_mask=240.0,
             weight_binary=100)
-        losses_all, best_model, best_epoch = model.fit(X, 
+        losses_all, best_model, best_epoch = model.fit(tr_X, 
             save_path=_tmp, 
             n_epochs=1,
             workers=4)
@@ -137,10 +148,10 @@ class TestFitPredict(unittest.TestCase):
         # test basic prediction
         model.eval()
         n = 128
-        Xn = X_raw[y_raw == nc][:n]
-        yn = y_raw[y_raw == nc][:n]
-        Xa = X_raw[y_raw != nc][:n]
-        ya = y_raw[y_raw != nc][:n]
+        Xn = tr_X[:n]
+        yn = tr_y[:n]
+        Xa = val_X[val_y == 1][:n]
+        ya = val_y[val_y == 1][:n]
         sn = model.predict(Xn, score_type="logpx", latent_score_type="normal", batch_size=16, workers=4)
         self.assertTrue(len(sn == n))
         sn = model.predict(Xn, n=2, score_type="logpx", latent_score_type="normal", workers=4)
@@ -182,8 +193,8 @@ class TestFitPredict(unittest.TestCase):
         self.assertTrue(s.shape == (4, n))
        
         # fit the goddamn logistic regression
-        Xf = X_raw[:1000]
-        yf = (y_raw[:1000] != nc).astype('int')
+        Xf = val_X[:5000]
+        yf = val_y[:5000]
         self.assertTrue(model.alpha is None)
         self.assertTrue(model.alpha_score_type is None)
         model.fit_alpha(Xf, yf, score_type="logpx", latent_score_type="normal", n=2, workers=4)
@@ -221,8 +232,7 @@ class TestFitPredict(unittest.TestCase):
 
 class TestParams(unittest.TestCase):
     def test_params(self):
-        nc = 0
-        X = X_raw[y_raw == nc][:1000]
+        X = tr_X[:1000]
         model = SGVAE(img_dim=X.shape[2], img_channels=X.shape[1], log_var_x_estimate="global")
         _model = copy.deepcopy(model)
         # are all the parts equal in terms of trainable params?
