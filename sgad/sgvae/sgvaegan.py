@@ -537,6 +537,6 @@ class SGVAEGAN(nn.Module):
         cp.sgvae = self.sgvae.cpu_copy()
         cp.discriminator = copy.deepcopy(self.discriminator.to("cpu"))
         self.discriminator.to(self.device)
-        self.setup_params()
-        self.setup_opts()
+        cp.setup_params()
+        cp.setup_opts()
         return cp
