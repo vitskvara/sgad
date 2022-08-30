@@ -88,40 +88,11 @@ class SGVAEGAN(nn.Module):
         )
         
         # parameter groups
-        # we optimize encoders, decoders and the discriminator individually
-        self.params = nn.ModuleDict({
-            'encoders': nn.ModuleList([
-                self.sgvae.vae_shape.encoder,
-                self.sgvae.vae_shape.mu_net_z,
-                self.sgvae.vae_shape.log_var_net_z,
-                self.sgvae.vae_background.encoder,
-                self.sgvae.vae_background.mu_net_z,
-                self.sgvae.vae_background.log_var_net_z,
-                self.sgvae.vae_foreground.encoder,
-                self.sgvae.vae_foreground.mu_net_z,
-                self.sgvae.vae_foreground.log_var_net_z
-            ]),
-            # the log_var_x nets are not optimized
-            'decoders': nn.ModuleList([
-                self.sgvae.vae_shape.decoder,
-                self.sgvae.vae_shape.mu_net_x,
-                self.sgvae.vae_background.decoder,
-                self.sgvae.vae_background.mu_net_x,
-                self.sgvae.vae_foreground.decoder,
-                self.sgvae.vae_foreground.mu_net_x,
-            ]),
-            'discriminator': nn.ModuleList([self.discriminator]),
-        })
-        
+        self.setup_params()
+
         # optimizer
-        self.opts = Optimizers()
-        self.opts.set('encoders', self.params.encoders, opt=self.config.optimizer, lr=self.config.lr, 
-            betas=self.config.betas)
-        self.opts.set('decoders', self.params.decoders, opt=self.config.optimizer, lr=self.config.lr, 
-            betas=self.config.betas)
-        self.opts.set('discriminator', self.params.discriminator, opt=self.config.optimizer, 
-            lr=self.config.lr, betas=self.config.betas)        
-        
+        self.setup_opts()
+
         # alphas for joint prediction
         self.set_alpha(alpha, alpha_score_type=None)
 
@@ -258,6 +229,41 @@ class SGVAEGAN(nn.Module):
             best_epoch = n_epochs
 
         return losses_all, best_model, best_epoch
+
+    def setup_params(self):
+        # we optimize encoders, decoders and the discriminator individually
+        self.params = nn.ModuleDict({
+            'encoders': nn.ModuleList([
+                self.sgvae.vae_shape.encoder,
+                self.sgvae.vae_shape.mu_net_z,
+                self.sgvae.vae_shape.log_var_net_z,
+                self.sgvae.vae_background.encoder,
+                self.sgvae.vae_background.mu_net_z,
+                self.sgvae.vae_background.log_var_net_z,
+                self.sgvae.vae_foreground.encoder,
+                self.sgvae.vae_foreground.mu_net_z,
+                self.sgvae.vae_foreground.log_var_net_z
+            ]),
+            # the log_var_x nets are not optimized
+            'decoders': nn.ModuleList([
+                self.sgvae.vae_shape.decoder,
+                self.sgvae.vae_shape.mu_net_x,
+                self.sgvae.vae_background.decoder,
+                self.sgvae.vae_background.mu_net_x,
+                self.sgvae.vae_foreground.decoder,
+                self.sgvae.vae_foreground.mu_net_x,
+            ]),
+            'discriminator': nn.ModuleList([self.discriminator]),
+        })
+    
+    def setup_opts(self):
+        self.opts = Optimizers()
+        self.opts.set('encoders', self.params.encoders, opt=self.config.optimizer, lr=self.config.lr, 
+            betas=self.config.betas)
+        self.opts.set('decoders', self.params.decoders, opt=self.config.optimizer, lr=self.config.lr, 
+            betas=self.config.betas)
+        self.opts.set('discriminator', self.params.discriminator, opt=self.config.optimizer, 
+            lr=self.config.lr, betas=self.config.betas)
 
     def _common_losses(self, x, z_s, z_b, z_f, iepoch):
         """This is used to compute loss values and other stuff for updates of the encoders and decoders."""
@@ -531,11 +537,6 @@ class SGVAEGAN(nn.Module):
         cp.sgvae = self.sgvae.cpu_copy()
         cp.discriminator = copy.deepcopy(self.discriminator.to("cpu"))
         self.discriminator.to(self.device)
-        # reset the optimizers
-        cp.opts.set('encoders', cp.params.encoders, opt=cp.config.optimizer, lr=cp.config.lr, 
-            betas=cp.config.betas)
-        cp.opts.set('decoders', cp.params.decoders, opt=cp.config.optimizer, lr=cp.config.lr, 
-            betas=cp.config.betas)
-        cp.opts.set('discriminator', cp.params.discriminator, opt=cp.config.optimizer, 
-            lr=cp.config.lr, betas=cp.config.betas)
+        self.setup_params()
+        self.setup_opts()
         return cp

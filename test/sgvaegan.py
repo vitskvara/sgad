@@ -25,8 +25,32 @@ def test_args(X, **kwargs):
     xh = model.decode_image((z,z,z))
     zh = model.encoded(x)
     xs = np.array(x.size())
-    xs[1] = model.vae_background.out_channels
+    xs[1] = model.sgvae.vae_background.out_channels
     return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
+
+model, xo, zo = test_args(tr_X)
+
+cmodel = model.cpu_copy()
+cmodel.device
+cmodel.move_to(model.device)
+all_equal_params(model, cmodel)
+
+model.params.discriminator[0][0].weight[0,0]
+cmodel.params.discriminator[0][0].weight[0,0]
+
+x = torch.tensor(tr_X[:64]).to(model.device)
+model.update_encoders(x, 1)
+not all_equal_params(model, cmodel)
+not all_nonequal_params(model, cmodel)
+all_nonequal_params(model.params.encoders, cmodel.params.encoders)
+all_equal_params(model.params.decoders, cmodel.params.decoders)
+all_equal_params(model.params.discriminator, cmodel.params.discriminator)
+
+model.params.discriminator[0][0].weight[0,0]
+cmodel.params.discriminator[0][0].weight[0,0]
+
+
+
 
 class TestAll(unittest.TestCase):
     def test_default(self):
