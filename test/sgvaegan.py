@@ -115,7 +115,7 @@ class TestAll(unittest.TestCase):
 
         # fit
         losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, 
-            workers=2, val_X = val_X, val_y = val_y, val_samples=1000)
+            workers=2, X_val = val_X, y_val = val_y, val_samples=1000)
         best_model.move_to(model.device)
 
         # 
@@ -123,6 +123,25 @@ class TestAll(unittest.TestCase):
             self.assertTrue(all_equal_params(model, best_model))
         else:
             self.assertTrue(all_nonequal_params(model, best_model))
+        self.assertTrue(model.best_score_type is not None)
+        self.assertTrue(model.best_score_type == best_model.best_score_type)
+
+        # 
+        disc_score = best_model.predict(val_X, score_type="discriminator", workers=2)
+        rec_score = best_model.predict(val_X, score_type="reconstruction", workers=2, n=5)
+        fm_score = best_model.predict(val_X, score_type="feature_matching", workers=2, n=5)
+        disc_auc = compute_auc(val_y, disc_score)
+        rec_auc = compute_auc(val_y, rec_score)
+        fm_auc = compute_auc(val_y, fm_score)
+        if best_model.best_score_type == "discriminator":
+            self.assertTrue(disc_auc > rec_auc)
+            self.assertTrue(disc_auc > fm_auc)
+        elif best_model.best_score_type == "reconstruction":
+            self.assertTrue(rec_auc > disc_auc)
+            self.assertTrue(rec_auc > fm_auc)
+        elif best_model.best_score_type == "feature_matching":
+            self.assertTrue(fm_auc > disc_auc)
+            self.assertTrue(fm_auc > rec_auc)
 
         # cleanup
         shutil.rmtree(_tmp)

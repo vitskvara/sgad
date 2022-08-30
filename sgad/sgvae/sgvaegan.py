@@ -71,7 +71,8 @@ class SGVAEGAN(nn.Module):
         self.device = self.sgvae.device
         self.z_dim = self.config.z_dim
         self.input_range = [-1,1]
-
+        self.best_score_type = None # selected with val data during fit
+        
         # seed
         init_seed = self.config.init_seed
         if init_seed is not None:
