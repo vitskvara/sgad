@@ -410,7 +410,26 @@ class SGVAEGAN(nn.Module):
 
     def compose_image(self, mask, background, foreground):
         return self.clamp(self.sgvae.compose_image(mask, background, foreground))
+
+    def decode(self, zs):
+        """For given set of z space encodings, returns means and logvars for all vaes."""
+        return self.sgvae.decode(zs)
     
+    def decoded(self, zs):
+        """For given set of z space encodings, returns samples in x space for all vaes. Don't use this for training!"""
+        return self.sgvae.decoded(zs)
+
+    def decode_image_components(self, zs):
+        """Using the means in x space produced by vaes, return the individual image components."""
+        return self.sgvae.decode_image_components(zs)
+
+    def decode_image(self, zs):
+        """For given set of z space encodings, returns a sampled final image."""
+        return self.sgvae.decode_image(zs)
+
+    def decode_image_mean(self, zs):
+        return self.sgvae.decode_image_mean(zs)
+        
     def mask(self, x):
         """Extract the mask of x."""
         return self.sgvae.mask(x)
