@@ -29,7 +29,6 @@ class SGVAEGAN(nn.Module):
     kwargs = 
         fm_alpha=0.0,
         fm_depth=7,
-        input_range=[0,1],
         z_dim=32, 
         h_channels=32, 
         img_dim=32, 
@@ -57,7 +56,6 @@ class SGVAEGAN(nn.Module):
     def __init__(self, 
             fm_alpha=1.0,
             fm_depth=7,
-            input_range=[0,1],
             alpha=None,
             **kwargs):
         # supertype init
@@ -72,8 +70,7 @@ class SGVAEGAN(nn.Module):
         self.config.fm_depth = fm_depth
         self.device = self.sgvae.device
         self.z_dim = self.config.z_dim
-        self.config.input_range = input_range
-        self.input_range = input_range
+        self.input_range = [-1,1]
 
         # seed
         init_seed = self.config.init_seed
@@ -84,7 +81,10 @@ class SGVAEGAN(nn.Module):
         self.discriminator = Discriminator(
             self.config.img_channels, 
             self.config.h_channels, 
-            self.config.img_dim
+            self.config.img_dim,
+            activation=self.config.activation,
+            batch_norm=self.config.batch_norm,
+            n_layers=self.config.n_layers
         )
         
         # parameter groups
@@ -101,6 +101,7 @@ class SGVAEGAN(nn.Module):
                 self.sgvae.vae_foreground.mu_net_z,
                 self.sgvae.vae_foreground.log_var_net_z
             ]),
+            # the log_var_x nets are not optimized
             'decoders': nn.ModuleList([
                 self.sgvae.vae_shape.decoder,
                 self.sgvae.vae_shape.mu_net_x,
@@ -114,10 +115,12 @@ class SGVAEGAN(nn.Module):
         
         # optimizer
         self.opts = Optimizers()
-        self.opts.set('encoders', self.params.encoders, lr=self.config.lr, betas=self.config.betas)
-        self.opts.set('decoders', self.params.decoders, lr=self.config.lr, betas=self.config.betas)
-        self.opts.set('discriminator', self.params.discriminator, lr=self.config.lr, 
-                      betas=self.config.betas)        
+        self.opts.set('encoders', self.params.encoders, opt=self.config.optimizer, lr=self.config.lr, 
+            betas=self.config.betas)
+        self.opts.set('decoders', self.params.decoders, opt=self.config.optimizer, lr=self.config.lr, 
+            betas=self.config.betas)
+        self.opts.set('discriminator', self.params.discriminator, opt=self.config.optimizer, 
+            lr=self.config.lr, betas=self.config.betas)        
         
         # alphas for joint prediction
         self.set_alpha(alpha, alpha_score_type=None)
@@ -128,23 +131,25 @@ class SGVAEGAN(nn.Module):
         # move to device
         self.move_to(self.device)
 
-    def fit(self, X,
+    def fit(self, X, X_val=None, y_val=None,
             n_epochs=20, 
             save_iter=1000, 
             verb=True, 
-            save_weights=False,
             save_path=None, 
+            save_weights=False,
             workers=12,
-            max_train_time=np.inf # in seconds           
+            max_train_time=np.inf, # in seconds           
+            val_samples=None
            ):
         """Fit the model given X.
 
         Returns (losses_all, None, None).
         """
-        # first check if the data is as expected
-        range_tol = 0.1
-        if (X.max() < self.input_range[1] - range_tol) or (X.min() > self.input_range[0] + range_tol):
-            raise ValueError(f'Expected data in range {self.input_range}, obtained [{X.min()}, {X.max()}]')
+        # check the scale of the data - [-1,1] works best
+        if X.min() >= 0.0:
+            warnings.warn("It is possible that your input X is not scaled to the interval [-1,1], please do so for better performance.")
+        if X_val is not None and X_val.min() >= 0.0:
+            warnings.warn("It is possible that your the validation data X_val is not scaled to the interval [-1,1], please do so for better performance.")
 
         # setup the dataloader
         y = torch.zeros(X.shape[0]).long()
@@ -153,11 +158,6 @@ class SGVAEGAN(nn.Module):
             shuffle=True, 
             num_workers=workers)
         
-        # loss logging
-        losses_all = {'iter': [], 'epoch': [], 'encl': [], 'decl': [], 'discl': [], 'kld': [], 'genl': [],
-             'fml': [], 'mask': [], 'texture': [], 'binary': [],
-             'kld_shape': [], 'kld_background': [], 'kld_foreground': []}
-
         # setup save paths
         if save_path is not None:
             save_results = True
@@ -167,6 +167,23 @@ class SGVAEGAN(nn.Module):
             x_sample = X[random.sample(range(X.shape[0]), 12),:,:,:]
         else:
             save_results = False
+
+        # for early stopping
+        if X_val is not None and y_val is None:
+            raise ValueError("X_val given without y_val - please provide it as well.")
+        if val_samples is None:
+            X_val_sub = X_val 
+            y_val_sub = y_val
+        else:
+            X_val_sub, y_val_sub = subsample_same(X_val,y_val,val_samples)
+        auc_val_d = auc_val_r = auc_val_fm = best_auc_val = -1.0
+        best_epoch = n_epochs
+        score_types = ['discriminator', 'reconstruction', 'feature_matching']
+
+        # loss logging
+        losses_all = {'iter': [], 'epoch': [], 'encl': [], 'decl': [], 'discl': [], 'kld': [], 'genl': [],
+             'fml': [], 'mask': [], 'texture': [], 'binary': [], 'auc_val_d': [], 'auc_val_r': [], 
+             'auc_val_fm': [], 'kld_shape': [], 'kld_background': [], 'kld_foreground': []}
 
         # tracking
         self.train()
@@ -186,13 +203,13 @@ class SGVAEGAN(nn.Module):
                                 
                 # collect losses
                 niter += 1
-                self.log_losses(losses_all, niter, epoch, el, decl, dl, kld, gl, fml, mask_l, text_l, 
-                    bin_l, kld_s, kld_b, kld_f)
+                self.log_losses(losses_all, niter, epoch, auc_val_d, auc_val_r, auc_val_fm, el, decl, dl, 
+                    kld, gl, fml, mask_l, text_l, bin_l, kld_s, kld_b, kld_f)
 
                 # output
                 if verb:
-                    self.print_progress(pbar, i, len(tr_loader), el, decl, dl, kld, gl, fml, bin_l, 
-                        mask_l, text_l)
+                    self.print_progress(pbar, i, len(tr_loader), auc_val_d, auc_val_r, auc_val_fm, el, decl, 
+                        dl, kld, gl, fml, bin_l, mask_l, text_l)
 
                 # Saving
                 batches_done = epoch * len(tr_loader) + i
@@ -210,12 +227,37 @@ class SGVAEGAN(nn.Module):
                 if run_time > max_train_time:
                     break
 
+            # after every epoch, compute the val auc
+            if X_val is not None:
+                self.eval()
+                scores_val_d = self.predict(X_val_sub, score_type='discriminator', workers=workers)
+                auc_val_d = compute_auc(y_val_sub, scores_val_d)
+                scores_val_r = self.predict(X_val_sub, score_type='reconstruction', workers=workers, n=4)
+                auc_val_r = compute_auc(y_val_sub, scores_val_r)
+                scores_val_fm = self.predict(X_val_sub, score_type='feature_matching', workers=workers, n=4)
+                auc_val_fm = compute_auc(y_val_sub, scores_val_fm)
+                # also copy the params
+
+                for (auc_val, score_type) in zip((auc_val_d, auc_val_r, auc_val_fm), score_types):
+                    if auc_val > best_auc_val:
+                        best_model = self.cpu_copy()
+                        best_epoch = epoch+1
+                        best_auc_val = auc_val
+                        self.best_score_type = score_type
+                self.train()
+
             # exit if running for too long
             if run_time > max_train_time:
                 print("Given runtime exceeded, ending training prematurely.")
                 break
 
-        return losses_all, None, None
+        # finally return self copy if we did not track validation performance 
+        if X_val is None:
+            best_model = self.cpu_copy()
+            best_model.eval()
+            best_epoch = n_epochs
+
+        return losses_all, best_model, best_epoch
 
     def _common_losses(self, x, z_s, z_b, z_f, iepoch):
         """This is used to compute loss values and other stuff for updates of the encoders and decoders."""
@@ -305,8 +347,8 @@ class SGVAEGAN(nn.Module):
         
         return discl
 
-    def log_losses(self, losses_all, niter, epoch, el, decl, dl, kld, gl, fml, mask_l, text_l, bin_l, 
-                     kld_s, kld_b, kld_f):
+    def log_losses(self, losses_all, niter, epoch, auc_val_d, auc_val_r, auc_val_fm, el, decl, dl, kld, gl, 
+        fml, mask_l, text_l, bin_l, kld_s, kld_b, kld_f):
         losses_all['iter'].append(niter)
         losses_all['epoch'].append(epoch)
         losses_all['encl'].append(get_float(el))
@@ -318,11 +360,15 @@ class SGVAEGAN(nn.Module):
         losses_all['mask'].append(get_float(mask_l))
         losses_all['texture'].append(get_float(text_l))
         losses_all['binary'].append(get_float(bin_l))
+        losses_all['auc_val_d'].append(auc_val_d)
+        losses_all['auc_val_r'].append(auc_val_r)
+        losses_all['auc_val_fm'].append(auc_val_fm)
         losses_all['kld_shape'].append(get_float(kld_s))
         losses_all['kld_background'].append(get_float(kld_b))
         losses_all['kld_foreground'].append(get_float(kld_f))
 
-    def print_progress(self, pbar, i, nsteps, el, decl, dl, kld, gl, fml, bin_l, mask_l, text_l, *args):
+    def print_progress(self, pbar, i, nsteps, auc_val_d, auc_val_r, auc_val_fm, el, decl, dl, kld, gl, fml, 
+        bin_l, mask_l, text_l, *args):
         msg = f"[Batch {i}/{nsteps}]"
         msg += ''.join(f"[enc: {get_float(el):.3f}]")
         msg += ''.join(f"[dec: {get_float(decl):.3f}]")
@@ -333,6 +379,9 @@ class SGVAEGAN(nn.Module):
         msg += ''.join(f"[binary: {get_float(bin_l):.3f}]")
         msg += ''.join(f"[mask: {get_float(mask_l):.3f}]")
         msg += ''.join(f"[texture: {get_float(text_l):.3f}]")
+        msg += ''.join(f"[auc_r: {auc_val_r:.3f}]")
+        msg += ''.join(f"[auc_d: {auc_val_d:.3f}]")
+        msg += ''.join(f"[auc_fm: {auc_val_fm:.3f}]")
         pbar.set_description(msg)
 
     def save_weights(self, file):
@@ -451,3 +500,16 @@ class SGVAEGAN(nn.Module):
             raise ValueError("given alpha must be a vector of length 6")
         self.alpha = np.array(alpha).reshape(6,)
 
+    def cpu_copy(self):
+        cp = SGVAEGAN(**self.config, device="cpu")
+        cp.sgvae = self.sgvae.cpu_copy()
+        cp.discriminator = copy.deepcopy(self.discriminator.to("cpu"))
+        self.discriminator.to(self.device)
+        # reset the optimizers
+        cp.opts.set('encoders', cp.params.encoders, opt=cp.config.optimizer, lr=cp.config.lr, 
+            betas=cp.config.betas)
+        cp.opts.set('decoders', cp.params.decoders, opt=cp.config.optimizer, lr=cp.config.lr, 
+            betas=cp.config.betas)
+        cp.opts.set('discriminator', cp.params.discriminator, opt=cp.config.optimizer, 
+            lr=cp.config.lr, betas=cp.config.betas)
+        return cp

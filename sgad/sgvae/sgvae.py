@@ -167,6 +167,7 @@ class SGVAE(nn.Module):
             y_val_sub = y_val
         else:
             X_val_sub, y_val_sub = subsample_same(X_val,y_val,val_samples)
+        best_epoch = n_epochs
         auc_val = best_auc_val = -1.0
         
         # loss values, n_epochs, save_iter, workers

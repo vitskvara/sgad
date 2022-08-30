@@ -17,6 +17,17 @@ seed = 1
 data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = False)
 (tr_X, tr_y, tr_c), (val_X, val_y, val_c), (tst_X, tst_y, tst_c) = data
 
+def test_args(X, **kwargs):
+    n = 10
+    model = SGVAEGAN(**kwargs)
+    x = torch.tensor(X[:n]).to(model.device)
+    z = torch.randn((n,model.z_dim)).to(model.device)
+    xh = model.decode_image((z,z,z))
+    zh = model.encoded(x)
+    xs = np.array(x.size())
+    xs[1] = model.vae_background.out_channels
+    return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
+
 class TestAll(unittest.TestCase):
     def test_default(self):
         # construct
