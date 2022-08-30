@@ -28,30 +28,6 @@ def test_args(X, **kwargs):
     xs[1] = model.sgvae.vae_background.out_channels
     return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
 
-model, xo, zo = test_args(tr_X)
-
-cmodel = model.cpu_copy()
-cmodel.device
-cmodel.move_to(model.device)
-all_equal_params(model, cmodel)
-
-model.params.discriminator[0][0].weight[0,0]
-cmodel.params.discriminator[0][0].weight[0,0]
-
-x = torch.tensor(tr_X[:64]).to(model.device)
-model.update_encoders(x, 1)
-not all_equal_params(model, cmodel)
-not all_nonequal_params(model, cmodel)
-all_nonequal_params(model.params.encoders, cmodel.params.encoders)
-all_equal_params(model.params.decoders, cmodel.params.decoders)
-all_equal_params(model.params.discriminator, cmodel.params.discriminator)
-
-model.params.discriminator[0][0].weight[0,0]
-cmodel.params.discriminator[0][0].weight[0,0]
-
-
-
-
 class TestAll(unittest.TestCase):
     def test_default(self):
         # construct
@@ -98,4 +74,55 @@ class TestAll(unittest.TestCase):
         model_new = load_model(SGVAEGAN, _tmp)
         self.assertTrue(model.config == model_new.config)
         all_equal_params(model, model_new)
+        shutil.rmtree(_tmp)
+
+    def test_cpu_copy(self):
+        # construct and copy the model
+        model, xo, zo = test_args(tr_X)
+        self.assertTrue(xo)
+        self.assertTrue(zo)
+        cmodel = model.cpu_copy()
+        cmodel.move_to(model.device)
+        self.assertTrue(all_equal_params(model, cmodel))
+
+        x = torch.tensor(tr_X[:64]).to(model.device)
+        # update encoders
+        z_s, z_b, z_f, x_rec, kld, bin_l, mask_l, text_l, fml, el, kld_s, kld_b, kld_f = model.update_encoders(x, 1)
+        self.assertTrue(not all_equal_params(model, cmodel))
+        self.assertTrue(not all_nonequal_params(model, cmodel))
+        self.assertTrue(all_nonequal_params(model.params.encoders, cmodel.params.encoders))
+        self.assertTrue(all_equal_params(model.params.decoders, cmodel.params.decoders))
+        self.assertTrue(all_equal_params(model.params.discriminator, cmodel.params.discriminator))
+        # update encoders
+        x_rec, x_gen, bin_l, mask_l, text_l, fml, gl, dl = model.update_decoders(x, z_s, z_b, z_f, 1)
+        self.assertTrue(not all_equal_params(model, cmodel))
+        self.assertTrue(not all_nonequal_params(model, cmodel))
+        self.assertTrue(all_nonequal_params(model.params.encoders, cmodel.params.encoders))
+        self.assertTrue(all_nonequal_params(model.params.decoders, cmodel.params.decoders))
+        self.assertTrue(all_equal_params(model.params.discriminator, cmodel.params.discriminator))
+        # update discriminator
+        discl = model.update_discriminator(x, x_rec, x_gen)
+        self.assertTrue(not all_equal_params(model, cmodel))
+        self.assertTrue(not all_nonequal_params(model, cmodel))
+        self.assertTrue(all_nonequal_params(model.params.encoders, cmodel.params.encoders))
+        self.assertTrue(all_nonequal_params(model.params.decoders, cmodel.params.decoders))
+        self.assertTrue(all_nonequal_params(model.params.discriminator, cmodel.params.discriminator))
+
+    def test_val_fit(self):
+        # construct
+        model = SGVAEGAN(fm_alpha=10.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
+                       input_range=[-1, 1], weight_texture=100.0)
+
+        # fit
+        losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, 
+            workers=2, val_X = val_X, val_y = val_y, val_samples=1000)
+        best_model.move_to(model.device)
+
+        # 
+        if best_epoch == 3:
+            self.assertTrue(all_equal_params(model, best_model))
+        else:
+            self.assertTrue(all_nonequal_params(model, best_model))
+
+        # cleanup
         shutil.rmtree(_tmp)
