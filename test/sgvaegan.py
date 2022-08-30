@@ -119,10 +119,10 @@ class TestAll(unittest.TestCase):
         best_model.move_to(model.device)
 
         # 
-        if best_epoch == 2:
+        if best_epoch == 3:
             self.assertTrue(all_equal_params(model, best_model))
         else:
-            self.assertTrue(not all_nonequal_params(model, best_model))
+            self.assertTrue(not all_equal_params(model, best_model))
         self.assertTrue(model.best_score_type is not None)
         self.assertTrue(model.best_score_type == best_model.best_score_type)
 
