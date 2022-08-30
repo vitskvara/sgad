@@ -404,9 +404,16 @@ class SGVAEGAN(nn.Module):
         """For given x, returns means and logvars in z space for all vaes in the model."""
         return self.sgvae.encode(x)
 
-    def encode_mean_batched(self, X, batch_size=None, workers=1):
+    def encode_mean_batched(self, x, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        return self.sgvae.encode_mean_batched(X, batch_size, workers)
+        return self.sgvae.encode_mean_batched(x, batch, batch_size, workers)
+    
+    def encoded(self, x):
+        """For given x, returns samples in z space for all vaes in the model."""
+        return self.sgvae.encoded(x)
+
+    def encoded_batched(self, x, batch_size=None, workers=1):
+        return self.sgvae.encoded_batched(x, batch_size, workers)
 
     def compose_image(self, mask, background, foreground):
         return self.clamp(self.sgvae.compose_image(mask, background, foreground))
