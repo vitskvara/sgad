@@ -283,8 +283,11 @@ class TestFitPredict(unittest.TestCase):
             save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_samples=1000)
         best_model.move_to(model.device)
         self.assertTrue(best_epoch > 1)
-        self.assertTrue(all_equal_params(model, best_model))
-        
+        if best_epoch == 3:
+            self.assertTrue(all_equal_params(model, best_model))
+        else:    
+            self.assertTrue(not all_equal_params(model, best_model))
+
         # scores
         score = model.predict(tst_X, workers=2, n=5)
         auc = compute_auc(tst_y, score)
