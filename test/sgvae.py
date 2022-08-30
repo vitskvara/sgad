@@ -29,24 +29,6 @@ def test_args(X, **kwargs):
     xs[1] = model.vae_background.out_channels
     return model, (xh.size() == xs).all(), zh[1].size() == (n,model.z_dim)
 
-
-
-model, xo, zo = test_args(tr_X)
-model, xo, zo = test_args(tr_X, log_var_x_estimate_top="conv_net")
-
-cmodel = SGVAE(**model.config, device = "cpu")
-cmodel.vae_shape = cmodel.vae_shape.cpu_copy()
-cmodel.vae_background = cmodel.vae_background.cpu_copy()
-cmodel.vae_foreground = cmodel.vae_foreground.cpu_copy()
-if model.config.log_var_x_estimate_top == "global":
-   cmodel.log_var_x_global = model.log_var_x_global.cpu()
-else:
-   cmodel.log_var_net_x = model.log_var_net_x.to("cpu")
-   model.log_var_net_x.to(model.device)
-cmodel.alpha = copy.deepcopy(model.alpha)
-cmodel.opts.set('sgvae', cmodel, opt=cmodel.config.optimizer, lr=cmodel.config.lr, betas=cmodel.config.betas)        
-
-
 class TestConstructor(unittest.TestCase):
     def _test_vae(self, vae, shape=False):
         self.assertTrue(vae.encoder[0].in_channels == 3)
@@ -300,7 +282,7 @@ class TestFitPredict(unittest.TestCase):
         losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
             save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_samples=1000)
         best_model.move_to(model.device)
-        self.assertTrue(best_epoch == 3)
+        self.assertTrue(best_epoch > 1)
         self.assertTrue(all_equal_params(model, best_model))
         
         # scores
