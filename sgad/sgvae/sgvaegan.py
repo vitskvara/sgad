@@ -493,6 +493,12 @@ class SGVAEGAN(nn.Module):
         return batched_score(self.fm_score, loader, self.device, **kwargs)
     
     def predict(self, X, score_type="discriminator", **kwargs):
+        # if score type not given, try the best score as it was fitted
+        if score_type == None and self.best_score_type == None:
+            score_type = "discriminator"
+        elif score_type == None and not self.best_score_type == None:
+            score_type = self.best_score_type
+
         if score_type == "discriminator":
             return self.discriminator_score(X, **kwargs)
         elif score_type == "feature_matching":
