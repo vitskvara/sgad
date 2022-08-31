@@ -211,12 +211,17 @@ class SGVAEGAN(nn.Module):
                 # also copy the params
 
                 for (auc_val, score_type) in zip((auc_val_d, auc_val_r, auc_val_fm), score_types):
+                    print(score_type)
                     if auc_val > best_auc_val:
                         best_model = self.cpu_copy()
                         best_epoch = epoch+1
                         best_auc_val = auc_val
                         self.best_score_type = score_type
+                        print("yes")
+                    else:
+                        print("no")
                 self.train()
+                print("")
 
             # exit if running for too long
             if run_time > max_train_time:
