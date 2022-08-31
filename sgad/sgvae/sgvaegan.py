@@ -212,6 +212,8 @@ class SGVAEGAN(nn.Module):
 
                 for (auc_val, score_type) in zip((auc_val_d, auc_val_r, auc_val_fm), score_types):
                     print(score_type)
+                    print(best_auc_val)
+                    print(auc_val)
                     if auc_val > best_auc_val:
                         best_model = self.cpu_copy()
                         best_epoch = epoch+1
