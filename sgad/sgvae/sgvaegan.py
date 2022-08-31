@@ -540,5 +540,5 @@ class SGVAEGAN(nn.Module):
         self.discriminator.to(self.device)
         cp.setup_params()
         cp.setup_opts()
-        cp.best_score_type = model.best_score_type
+        cp.best_score_type = self.best_score_type
         return cp
