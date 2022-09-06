@@ -413,7 +413,7 @@ class SGVAEGAN(nn.Module):
 
     def encode_mean_batched(self, x, batch_size=None, workers=1):
         """For given x, returns means in z space for all vaes in the model."""
-        return self.sgvae.encode_mean_batched(x, batch, batch_size, workers)
+        return self.sgvae.encode_mean_batched(x, batch_size, workers)
     
     def encoded(self, x):
         """For given x, returns samples in z space for all vaes in the model."""
