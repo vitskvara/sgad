@@ -138,7 +138,8 @@ class GAN(nn.Module):
             save_path=None, 
             save_weights=False,
             workers=12,
-            max_train_time=np.inf # in seconds           
+            max_train_time=np.inf, # in seconds           
+            val_samples=None
            ):
         """Fit the model given X (and possibly y).
 
@@ -161,8 +162,14 @@ class GAN(nn.Module):
         # also check the validation data
         if X_val is not None and y_val is None:
             raise ValueError("X_val given without y_val - please provide it as well.")
+        if val_samples is None:
+            X_val_sub = X_val 
+            y_val_sub = y_val
+        else:
+            X_val_sub, y_val_sub = subsample_same(X_val,y_val,val_samples)
         auc_val = best_auc_val = -1.0
-        
+        best_epoch = n_epochs
+
         # loss values
         losses_all = {'iter': [], 'epoch': [], 'discloss': [], 'genloss': [], 'fmloss': [], 'auc_val': []}
 
@@ -253,8 +260,8 @@ class GAN(nn.Module):
             # after every epoch, print the val auc
             if X_val is not None:
                 self.eval()
-                scores_val = self.predict(X_val, num_workers=workers)
-                auc_val = compute_auc(y_val, scores_val)
+                scores_val = self.predict(X_val_sub, num_workers=workers)
+                auc_val = compute_auc(y_val_sub, scores_val)
                 # also copy the params
                 if auc_val > best_auc_val:
                     best_model = self.cpu_copy()
