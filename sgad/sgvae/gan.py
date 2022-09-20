@@ -16,7 +16,8 @@ import random
 import os, sys
 
 from sgad.sgvae.utils import TextureDecoder, ShapeDecoder, Discriminator, create_score_loader, batched_score
-from sgad.utils import save_cfg, Optimizers, Subset, compute_auc, subsample_same
+from sgad.sgvae.utils import subsample_same
+from sgad.utils import save_cfg, Optimizers, Subset, compute_auc
 
 def generator_loss(sg):
     """
