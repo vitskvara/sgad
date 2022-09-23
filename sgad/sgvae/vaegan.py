@@ -12,6 +12,7 @@ import time
 import random
 import pandas
 import os
+import warnings
 
 from sgad.utils import Optimizers, Subset
 from sgad.sgvae import VAE, feature_matching_loss
