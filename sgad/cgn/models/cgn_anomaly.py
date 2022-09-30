@@ -16,6 +16,7 @@ from sgad.shared.losses import BinaryLoss, PerceptualLoss
 from sgad.utils import save_cfg, Optimizers, compute_auc, Subset
 from .cgn import CGN
 from .discriminator import DiscLin, DiscConv
+from sgad.sgvae.gan import generator_loss, discriminator_loss
 
 class CGNAnomaly(nn.Module):
     def __init__(
@@ -35,6 +36,7 @@ class CGNAnomaly(nn.Module):
                 lambdas_perc=[0.01, 0.05, 0.0, 0.01],
                 lr=0.0002,
                 betas=[0.5, 0.999],
+                adv_loss='linear',
                 device=None,
                 **kwargs
                 ):
@@ -62,7 +64,7 @@ class CGNAnomaly(nn.Module):
         self.discriminator = Discriminator(n_classes=n_classes, ndf=disc_h_dim, img_shape=img_shape)
 
         # Loss functions
-        self.adv_loss = torch.nn.MSELoss() # ?
+        self.adv_loss = torch.nn.MSELoss() if adv_loss == "linear" else (generator_loss, discriminator_loss)
         self.binary_loss = BinaryLoss(lambda_mask) # this enforces the binary mask
         self.perc_loss = PerceptualLoss(style_wgts=lambdas_perc) # similarity of pictures 
 
@@ -94,7 +96,8 @@ class CGNAnomaly(nn.Module):
         self.config.lambdas_perc = lambdas_perc
         self.config.lr = lr
         self.config.betas = betas
-                
+        self.config.adv_loss = adv_loss
+
     def get_inp(self, ys):
         return self.cgn.get_inp(ys)
 
@@ -174,7 +177,10 @@ class CGNAnomaly(nn.Module):
                 validity = self.discriminator(x_gen, y_gen)
 
                 losses_g = {}
-                losses_g['adv'] = self.adv_loss(validity, valid)
+                if self.config.adv_loss == "linear":
+                    losses_g['adv'] = self.adv_loss(validity, valid) 
+                else:
+                    losses_g['adv'] = self.adv_loss[0](torch.sigmoid(validity))
                 losses_g['binary'] = self.binary_loss(mask)
                 losses_g['perc'] = self.perc_loss(x_gen, x_gt)
 
@@ -194,9 +200,15 @@ class CGNAnomaly(nn.Module):
 
                 # Losses
                 losses_d = {}
-                losses_d['real'] = self.adv_loss(validity_real, valid)
-                losses_d['fake'] = self.adv_loss(validity_fake, fake)
-                loss_d = sum(losses_d.values()) / 2
+                if self.config.adv_loss == "linear":
+                    losses_d['real'] = self.adv_loss(validity_real, valid)
+                    losses_d['fake'] = self.adv_loss(validity_fake, fake)
+                    loss_d = sum(losses_d.values()) / 2
+                else:
+                    # this is not completely accurate but in the end we optimize loss_d anyway
+                    loss_d = self.adv_loss[1](torch.sigmoid(validity_real), torch.sigmoid(validity_fake))
+                    losses_d['real'] = loss_d
+                    losses_d['fake'] = loss_d
 
                 # Backprop and step
                 loss_d.backward()
@@ -356,7 +368,8 @@ class CGNAnomaly(nn.Module):
         self.device = device
         self.cgn = self.cgn.to(device)
         self.discriminator = self.discriminator.to(device)
-        self.adv_loss = self.adv_loss.to(device)
+        if self.config.adv_loss == "linear":
+            self.adv_loss = self.adv_loss.to(device)
         self.binary_loss = self.binary_loss.to(device)
         self.perc_loss = self.perc_loss.to(device)
 
@@ -382,6 +395,7 @@ class CGNAnomaly(nn.Module):
                 lambdas_perc=self.config.lambdas_perc,
                 lr=self.config.lr,
                 betas=self.config.betas,
+                adv_loss=self.config.adv_loss,
                 device='cpu')
         cp.cgn = cgn
         cp.discriminator = disc
