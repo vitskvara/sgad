@@ -206,9 +206,11 @@ class CGNAnomaly(nn.Module):
                     loss_d = sum(losses_d.values()) / 2
                 else:
                     # this is not completely accurate but in the end we optimize loss_d anyway
-                    loss_d = self.adv_loss[1](torch.sigmoid(validity_real), torch.sigmoid(validity_fake))
-                    losses_d['real'] = loss_d
-                    losses_d['fake'] = loss_d
+                    validity_real = torch.sigmoid(validity_real)
+                    validity_fake = torch.sigmoid(validity_fake)
+                    loss_d = self.adv_loss[1](validity_real, validity_fake)
+                    losses_d['real'] = - torch.mean(torch.log(validity_real + 1e-8))
+                    losses_d['fake'] = - torch.mean(torch.log(1 - validity_fake + 1e-8))
 
                 # Backprop and step
                 loss_d.backward()
