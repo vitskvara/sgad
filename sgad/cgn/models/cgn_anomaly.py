@@ -76,9 +76,6 @@ class CGNAnomaly(nn.Module):
         # reset seed
         torch.random.seed()
         
-        # choose device automatically
-        self.move_to(device)
-
         # create config
         self.config = CN()
         self.config.z_dim = z_dim
@@ -97,6 +94,9 @@ class CGNAnomaly(nn.Module):
         self.config.lr = lr
         self.config.betas = betas
         self.config.adv_loss = adv_loss
+
+        # choose device automatically
+        self.move_to(device)
 
     def get_inp(self, ys):
         return self.cgn.get_inp(ys)
