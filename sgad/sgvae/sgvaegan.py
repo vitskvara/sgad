@@ -23,6 +23,7 @@ from sgad.sgvae.utils import Discriminator, create_score_loader, subsample_same
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 from sgad.sgvae.vaegan import vaegan_generator_loss, vaegan_discriminator_loss
+from sgad.sgvae.vaegan import vaegan_generator_lin_loss, vaegan_discriminator_lin_loss
 
 class SGVAEGAN(nn.Module):
     """SGVAEGAN(**kwargs)
@@ -52,12 +53,14 @@ class SGVAEGAN(nn.Module):
         std_approx="exp",
         lr=0.0002,
         betas=[0.5, 0.999],
+        adv_loss="log",
         device=None
     """
     def __init__(self, 
             fm_alpha=1.0,
             fm_depth=7,
             alpha=None,
+            adv_loss="log",
             **kwargs):
         # supertype init
         super(SGVAEGAN, self).__init__()
@@ -69,24 +72,28 @@ class SGVAEGAN(nn.Module):
         self.config = copy.deepcopy(self.sgvae.config)
         self.config.fm_alpha = fm_alpha
         self.config.fm_depth = fm_depth
+        self.config.adv_loss = adv_loss
         self.device = self.sgvae.device
         self.z_dim = self.config.z_dim
         self.input_range = [-1,1]
         self.best_score_type = None # selected with val data during fit
-        
+        self.adv_loss = adv_loss
+
         # seed
         init_seed = self.config.init_seed
         if init_seed is not None:
             torch.random.manual_seed(init_seed)
 
         # discriminator
+        last_sig = True if adv_loss == "log" else False
         self.discriminator = Discriminator(
             self.config.img_channels, 
             self.config.h_channels, 
             self.config.img_dim,
             activation=self.config.activation,
             batch_norm=self.config.batch_norm,
-            n_layers=self.config.n_layers
+            n_layers=self.config.n_layers,
+            last_sigmoid=last_sig
         )
         
         # parameter groups
@@ -330,7 +337,10 @@ class SGVAEGAN(nn.Module):
         # generator loss
         sr = self.discriminator(x_rec)
         sg = self.discriminator(x_gen)
-        gl = vaegan_generator_loss(sg, sr)
+        if self.adv_loss == "log":
+            gl = vaegan_generator_loss(sg, sr)
+        else:
+            gl = vaegan_generator_lin_loss(sg, sr, self.device)
         
         # param update
         self.opts.zero_grad(['decoders'])
@@ -346,7 +356,10 @@ class SGVAEGAN(nn.Module):
         st = self.discriminator(x)
         srd = self.discriminator(x_rec.detach())
         sgd = self.discriminator(x_gen.detach())
-        discl = vaegan_discriminator_loss(st, sgd, srd)
+        if self.adv_loss == "log":
+            discl = vaegan_discriminator_loss(st, sgd, srd)
+        else:
+            discl = vaegan_discriminator_lin_loss(st, sgd, srd, self.device)
         
         # param update
         self.opts.zero_grad(['discriminator'])

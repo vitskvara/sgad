@@ -76,6 +76,40 @@ class TestAll(unittest.TestCase):
         all_equal_params(model, model_new)
         shutil.rmtree(_tmp)
 
+    def test_lin_loss(self):
+        # construct
+        model = SGVAEGAN(fm_alpha=0.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
+                       input_range=[-1, 1], weight_texture=100.0, adv_loss="lin")
+
+        # fit
+        losses_all, _, _ = model.fit(tr_X, n_epochs=3, save_path=_tmp, save_weights=True, workers=2)
+
+        # some prerequisites
+        n = 10
+        x = torch.Tensor(tr_X[:n]).to(model.device)
+        model.eval()
+        # generate
+        _x = model.generate(n)
+        self.assertTrue(_x.shape[0] == n)
+        self.assertTrue(_x.shape == x.shape)
+        # reconstrut
+        _x = model.reconstruct(x)
+        self.assertTrue(_x.shape[0] == n)
+        self.assertTrue(_x.shape == x.shape)
+        
+        # scores
+        disc_score = model.predict(tst_X, score_type="discriminator", workers=2)
+        rec_score = model.predict(tst_X, score_type="reconstruction", workers=2, n=5)
+        fm_score = model.predict(tst_X, score_type="feature_matching", workers=2, n=5)
+        disc_auc = compute_auc(tst_y, disc_score)
+        rec_auc = compute_auc(tst_y, rec_score)
+        fm_auc = compute_auc(tst_y, fm_score)
+        self.assertTrue(disc_auc > 0.5)
+        self.assertTrue(rec_auc > 0.5)
+        self.assertTrue(fm_auc > 0.5)
+
+        shutil.rmtree(_tmp)
+
     def test_cpu_copy(self):
         # construct and copy the model
         model, xo, zo = test_args(tr_X)

@@ -38,7 +38,7 @@ def vaegan_discriminator_loss(st, sg, sr):
     """
     return - torch.sum(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8))  / 3.0
 
-def vaegan_generator_loss_lin(sg, sr, device):
+def vaegan_generator_lin_loss(sg, sr, device):
     """
     This is a bastardized version of the generator adversarial loss, where we have a linear output
     of the discriminator and we push it as close to 1 as possible.
@@ -47,7 +47,7 @@ def vaegan_generator_loss_lin(sg, sr, device):
     o = torch.ones(len(sg),).to(device)
     return (lf(sg.squeeze(), o) + lf(sr.squeeze(), o))/2
 
-def vaegan_discriminator_loss_lin(st, sg, sr, device):
+def vaegan_discriminator_lin_loss(st, sg, sr, device):
     """
     This is a bastardized version of the discriminator adversarial loss, where we have a linear output
     of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
@@ -299,7 +299,7 @@ class VAEGAN(nn.Module):
         if self.adv_loss == "log":
             gl = vaegan_generator_loss(sg, sr)  
         else:
-            gl = vaegan_generator_loss_lin(sg, sr, self.device)
+            gl = vaegan_generator_lin_loss(sg, sr, self.device)
         # dec update
         self.opts.zero_grad(['decoder'])
         decl = self.config.fm_alpha*fml + gl
@@ -314,7 +314,7 @@ class VAEGAN(nn.Module):
         if self.adv_loss == "log":
             dl = vaegan_discriminator_loss(st, sgd, srd)
         else:
-            dl = vaegan_discriminator_loss_lin(st, sgd, srd, self.device)
+            dl = vaegan_discriminator_lin_loss(st, sgd, srd, self.device)
         # disc update
         self.opts.zero_grad(['discriminator'])
         dl.backward(retain_graph=False)

@@ -43,7 +43,7 @@ def feature_matching_loss(x, xg, discriminator, l):
     hg = discriminator[0:l](xg)
     return nn.MSELoss(reduction='none')(ht, hg).sum((1,2,3))
 
-def generator_loss_lin(sg, device):
+def generator_lin_loss(sg, device):
     """
     This is a bastardized version of the generator adversarial loss, where we have a linear output
     of the discriminator and we push it as close to 1 as possible.
@@ -51,7 +51,7 @@ def generator_loss_lin(sg, device):
     lf = torch.nn.MSELoss()
     return lf(sg.squeeze(), torch.ones(len(sg),).to(device))
 
-def discriminator_loss_lin(st, sg, device):
+def discriminator_lin_loss(st, sg, device):
     """
     This is a bastardized version of the discriminator adversarial loss, where we have a linear output
     of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
@@ -236,7 +236,7 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['generator'])
                 sg = self.discriminator(xg)
                 fml = torch.mean(feature_matching_loss(xt, xg, self.discriminator, self.fm_depth))
-                tgl = generator_loss(sg) if self.adv_loss == "log" else generator_loss_lin(sg, self.device)
+                tgl = generator_loss(sg) if self.adv_loss == "log" else generator_lin_loss(sg, self.device)
                 gl = tgl + self.alpha*fml
                 gl.backward()
                 self.opts.step(['generator'], False)
@@ -245,7 +245,7 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['discriminator'])
                 sgd = self.discriminator(xg.detach())
                 st = self.discriminator(xt)
-                dl = discriminator_loss(st, sgd) if self.adv_loss == "log" else discriminator_loss_lin(st, sgd, self.device)
+                dl = discriminator_loss(st, sgd) if self.adv_loss == "log" else discriminator_lin_loss(st, sgd, self.device)
                 dl.backward()
                 self.opts.step(['discriminator'], False)
                 
