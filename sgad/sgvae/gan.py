@@ -91,6 +91,11 @@ class GAN(nn.Module):
         """
         # supertype init
         super(GAN, self).__init__()
+
+        # check adv loss type
+        if adv_loss is not in  ["lin", "log"]:
+            raise ValueError(f"Unknown adv loss type {adv_loss}, please use one of [log, lin].")
+        
         
         # set seed
         if init_seed is not None:
