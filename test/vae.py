@@ -164,7 +164,6 @@ class TestFit(unittest.TestCase):
             n_epochs=10, 
             save_iter=1000, 
             verb=True, 
-            save_results=True, 
             save_path=_tmp
            )
         _, _, _elbo, _, _, _, _ = model.train_step(x)
@@ -181,7 +180,6 @@ class TestFit(unittest.TestCase):
             n_epochs=10, 
             save_iter=1000, 
             verb=True, 
-            save_results=True, 
             save_path=_tmp
            )
         _, _, _elbo, _, _, _, _ = model.train_step(x)
@@ -198,7 +196,6 @@ class TestFit(unittest.TestCase):
             n_epochs=5, 
             save_iter=1000, 
             verb=True, 
-            save_results=True, 
             save_path=_tmp
            )
         _, _, _elbo, _, _, _, _ = model.train_step(x)
@@ -228,8 +225,7 @@ class TestParams(unittest.TestCase):
             n_epochs=1, 
             save_iter=1000, 
             verb=True, 
-            save_results=False
-           )
+            )
         # check the equality of params
         self.assertTrue(not all_equal_params(model, _model))
         self.assertTrue(all_nonequal_params(model, _model))

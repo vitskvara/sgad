@@ -49,7 +49,7 @@ def generator_loss_lin(sg, device):
     of the discriminator and we push it as close to 1 as possible.
     """
     lf = torch.nn.MSELoss()
-    return lf(sg, torch.ones(len(sg),).to(device))
+    return lf(sg.squeeze(), torch.ones(len(sg),).to(device))
 
 def discriminator_loss_lin(st, sg, device):
     """
@@ -57,7 +57,7 @@ def discriminator_loss_lin(st, sg, device):
     of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
     """
     lf = torch.nn.MSELoss()
-    return (lf(st, torch.ones(len(st),).to(device)) + lf(sg, torch.zeros(len(st),).to(device)))/2
+    return (lf(st.squeeze(), torch.ones(len(st),).to(device)) + lf(sg.squeeze(), torch.zeros(len(st),).to(device)))/2
     
 class GAN(nn.Module):
     def __init__(self, 
@@ -93,7 +93,7 @@ class GAN(nn.Module):
         super(GAN, self).__init__()
 
         # check adv loss type
-        if adv_loss is not in  ["lin", "log"]:
+        if adv_loss not in  ["lin", "log"]:
             raise ValueError(f"Unknown adv loss type {adv_loss}, please use one of [log, lin].")
         
         
@@ -243,8 +243,7 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['discriminator'])
                 sgd = self.discriminator(xg.detach())
                 st = self.discriminator(xt)
-                dl = discriminator_loss(st, sgd) if self.adv_loss == "log" else 
-                    discriminator_loss_lin(st, sgd, self.device)
+                dl = discriminator_loss(st, sgd) if self.adv_loss == "log" else discriminator_loss_lin(st, sgd, self.device)
                 dl.backward()
                 self.opts.step(['discriminator'], False)
                 

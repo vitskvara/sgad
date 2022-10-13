@@ -29,23 +29,23 @@ class TestSplit(unittest.TestCase):
         self.assertTrue(len(cifar10_raw[1])==60000)
 
         # cifar10 dataloader
-        from sgad.cgn import CIFAR10
+        from sgad.utils import CIFAR10
         cifar = CIFAR10()
         bs = 13
-        tr_loader, val_loader, tst_loader = sgad.cgn.dataloader.split_dataset(cifar, seed=2)
+        tr_loader, val_loader, tst_loader = sgad.utils.dataloader.split_dataset(cifar, seed=2)
         loader = DataLoader(tr_loader, batch_size=bs, shuffle=True, num_workers=4, pin_memory=True)
         batch = next(iter(loader))
         self.assertTrue(batch['ims'].shape==(bs, 3, 32, 32))
         self.assertTrue(len(batch['labels'])==bs)
 
     def test_get_dataloaders(self):
-        from sgad.cgn.dataloader import get_dataloaders
+        from sgad.utils import get_dataloaders
         dl,_ = get_dataloaders('wildlife_MNIST', 32, 12)
         batch = next(iter(dl))
         self.assertTrue(True)
 
     def test_split_dataset(self):
-        from sgad.cgn import SVHN2, split_dataset
+        from sgad.utils import SVHN2, split_dataset
         svhn2 = SVHN2()
         tr_set, val_set, tst_set = split_dataset(svhn2, seed=2, target_class=0)
 

@@ -137,4 +137,26 @@ class TestAll(unittest.TestCase):
 #		all_equal_params(model, model_new)
 		shutil.rmtree(_tmp)
 
-	
+	def test_fit_lin_loss(self):
+		# construct
+		model = GAN(alpha=0.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, 
+					   input_range=[-1, 1], optimizer="rmsprop", adv_loss="lin")
+
+		# fit
+		losses_all, _, _ = model.fit(tr_X, n_epochs=5, save_path=_tmp, save_weights=True, workers=2)
+		
+		# some prerequisites
+		n = 10
+		x = torch.Tensor(tr_X[:n]).to(model.device)
+		model.eval()
+		# generate
+		_x = model.generate(n)
+				self.assertTrue(_x.shape[0] == n)
+				self.assertTrue(_x.shape == x.shape)
+
+		# scores
+		disc_score = model.predict(tst_X, workers=2)
+		disc_auc = compute_auc(tst_y, disc_score)
+		self.assertTrue(disc_auc > 0.5)
+
+		shutil.rmtree(_tmp)
