@@ -77,7 +77,8 @@ def Encoder(z_dim, img_channels, h_channels, img_dim, activation="leakyrelu", ba
     res.append(af)
     return nn.Sequential(*res)
 
-def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3):
+def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", batch_norm=True, n_layers=3,
+    last_sigmoid=True):
     out_dim = img_dim // 8
     lin_dim = h_channels*4*out_dim*out_dim
     res = [# this has to be like this otherwise there are problems with the fm loss
@@ -93,7 +94,8 @@ def Discriminator(img_channels, h_channels, img_dim, activation="leakyrelu", bat
     # now append the reshaping and linear layers
     res.append(Reshape(*(-1, lin_dim)))
     res.append(nn.Linear(lin_dim, 1))
-    res.append(Sigmoid())
+    if last_sigmoid:
+        res.append(Sigmoid())
 
     return nn.Sequential(*res)
 

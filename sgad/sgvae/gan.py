@@ -43,6 +43,22 @@ def feature_matching_loss(x, xg, discriminator, l):
     hg = discriminator[0:l](xg)
     return nn.MSELoss(reduction='none')(ht, hg).sum((1,2,3))
 
+def generator_loss_lin(sg, device):
+    """
+    This is a bastardized version of the generator adversarial loss, where we have a linear output
+    of the discriminator and we push it as close to 1 as possible.
+    """
+    lf = torch.nn.MSELoss()
+    return lf(sg, torch.ones(len(sg),).to(device))
+
+def discriminator_loss_lin(st, sg, device):
+    """
+    This is a bastardized version of the discriminator adversarial loss, where we have a linear output
+    of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
+    """
+    lf = torch.nn.MSELoss()
+    return (lf(st, torch.ones(len(st),).to(device)) + lf(sg, torch.zeros(len(st),).to(device)))/2
+    
 class GAN(nn.Module):
     def __init__(self, 
                  z_dim=32, 
@@ -62,6 +78,7 @@ class GAN(nn.Module):
                  optimizer="rmsprop",
                  lr=0.0002,
                  betas=[0.5, 0.999],
+                 adv_loss="log",
                  device=None,
                  **kwargs
                 ):
@@ -86,6 +103,7 @@ class GAN(nn.Module):
         self.img_channels = img_channels
         init_sz = img_dim // 4
         self.alpha = alpha
+        self.adv_loss = adv_loss
         
         # init generator
         self.out_channels = img_channels
@@ -97,8 +115,9 @@ class GAN(nn.Module):
                 activation=activation, batch_norm=batch_norm)
         
         # init discriminator
+        last_sig = True if adv_loss == "log" else False
         self.discriminator = Discriminator(self.out_channels, h_channels, img_dim, n_layers=n_layers,
-            activation=activation, batch_norm=batch_norm)
+            activation=activation, batch_norm=batch_norm, last_sigmoid=last_sig) 
         
         # Optimizers
         self.opts = Optimizers()
@@ -129,7 +148,8 @@ class GAN(nn.Module):
         self.config.alpha = alpha
         self.config.fm_depth = fm_depth
         self.config.lr = lr
-        self.config.betas = betas   
+        self.config.betas = betas
+        self.config.adv_loss = adv_loss
 
     def fit(self, X,
             X_val=None, y_val=None,
@@ -209,7 +229,7 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['generator'])
                 sg = self.discriminator(xg)
                 fml = torch.mean(feature_matching_loss(xt, xg, self.discriminator, self.fm_depth))
-                tgl = generator_loss(sg)
+                tgl = generator_loss(sg) if self.adv_loss == "log" else generator_loss_lin(sg, self.device)
                 gl = tgl + self.alpha*fml
                 gl.backward()
                 self.opts.step(['generator'], False)
@@ -218,7 +238,8 @@ class GAN(nn.Module):
                 self.opts.zero_grad(['discriminator'])
                 sgd = self.discriminator(xg.detach())
                 st = self.discriminator(xt)
-                dl = discriminator_loss(st, sgd)
+                dl = discriminator_loss(st, sgd) if self.adv_loss == "log" else 
+                    discriminator_loss_lin(st, sgd, self.device)
                 dl.backward()
                 self.opts.step(['discriminator'], False)
                 
