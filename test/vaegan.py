@@ -124,6 +124,41 @@ class TestAll(unittest.TestCase):
         all_equal_params(model, model_new)
         shutil.rmtree(_tmp)
 
+    def test_lin_loss(self):
+        # construct
+        model = VAEGAN(fm_alpha=0.0, z_dim=128, h_channels=128, fm_depth=7, batch_size=64, adv_loss="lin")
+
+        # fit
+        losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=30, save_path=_tmp, 
+            save_weights=True, workers=2)
+        best_model.move_to(model.device)
+        self.assertTrue(best_epoch > 1)
+        self.assertTrue(all_equal_params(model, best_model))
+
+        # some prerequisites
+        n = 10
+        x = torch.Tensor(tr_X[:n]).to(model.device)
+        model.eval()
+        # generate
+        _x = model.generate(n)
+        self.assertTrue(_x.shape[0] == n)
+        self.assertTrue(_x.shape == x.shape)
+        # reconstrut
+        _x = model.reconstruct(x)
+        self.assertTrue(_x.shape[0] == n)
+        self.assertTrue(_x.shape == x.shape)
+
+        # scores
+        disc_score = model.predict(tst_X, score_type="discriminator", workers=2)
+        rec_score = model.predict(tst_X, score_type="reconstruction", workers=2, n=5)
+        fm_score = model.predict(tst_X, score_type="feature_matching", workers=2, n=5)
+        disc_auc = compute_auc(tst_y, disc_score)
+        rec_auc = compute_auc(tst_y, rec_score)
+        fm_auc = compute_auc(tst_y, fm_score)
+        self.assertTrue(disc_auc > 0.5)
+        self.assertTrue(rec_auc > 0.5)
+        self.assertTrue(fm_auc > 0.5)
+
 
     def test_cpu_copy(self):
         model, xo, zo = test_args(tr_X, log_var_x_estimate="conv_net")
@@ -161,8 +196,8 @@ class TestAll(unittest.TestCase):
         losses_all, best_model, best_epoch = model.fit(tr_X, n_epochs=3, save_path=_tmp, 
             save_weights=True, workers=2, X_val=val_X, y_val=val_y, val_samples=1000)
         best_model.move_to(model.device)
-        self.assertTrue(best_epoch == 3)
-        self.assertTrue(all_equal_params(model, best_model))
+        if best_epoch == 3:
+            self.assertTrue(all_equal_params(model, best_model))
         
         # scores
         disc_score = model.predict(tst_X, score_type="discriminator", workers=2)

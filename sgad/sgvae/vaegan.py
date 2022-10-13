@@ -38,6 +38,26 @@ def vaegan_discriminator_loss(st, sg, sr):
     """
     return - torch.sum(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8))  / 3.0
 
+def vaegan_generator_loss_lin(sg, sr, device):
+    """
+    This is a bastardized version of the generator adversarial loss, where we have a linear output
+    of the discriminator and we push it as close to 1 as possible.
+    """
+    lf = torch.nn.MSELoss()
+    o = torch.ones(len(sg),).to(device)
+    return (lf(sg.squeeze(), o) + lf(sr.squeeze(), o))/2
+
+def vaegan_discriminator_loss_lin(st, sg, sr, device):
+    """
+    This is a bastardized version of the discriminator adversarial loss, where we have a linear output
+    of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
+    """
+    lf = torch.nn.MSELoss()
+    o = torch.ones(len(st),).to(device)
+    z = torch.zeros(len(st),).to(device)
+    return (lf(st.squeeze(), o) + lf(sg.squeeze(), z) + lf(sr.squeeze(), z)) / 3
+
+
 class VAEGAN(nn.Module):
     """VAEGAN(**kwargs)
     
@@ -60,16 +80,22 @@ class VAEGAN(nn.Module):
         std_approx="exp",
         lr=0.0002,
         betas=[0.5, 0.999],
+        adv_loss="log",
         device=None,
         log_var_x_estimate = "conv_net"
     """
     def __init__(self, 
             fm_alpha=1.0,
             fm_depth=7,
+            adv_loss="log",
             **kwargs):
         # supertype init
         super(VAEGAN, self).__init__()
-                
+        
+        # check adv loss type
+        if adv_loss not in  ["lin", "log"]:
+            raise ValueError(f"Unknown adv loss type {adv_loss}, please use one of [log, lin].")
+        
         # vaes
         self.vae = VAE(**kwargs)
         
@@ -77,24 +103,28 @@ class VAEGAN(nn.Module):
         self.config = copy.deepcopy(self.vae.config)
         self.config.fm_alpha = fm_alpha
         self.config.fm_depth = fm_depth
+        self.config.adv_loss = adv_loss
         self.input_range = [-1, 1]
         self.device = self.vae.device
         self.z_dim = self.config.z_dim
         self.best_score_type = None # selected with val data during fit
-        
+        self.adv_loss = adv_loss
+
         # seed
         init_seed = self.config.init_seed
         if init_seed is not None:
             torch.random.manual_seed(init_seed)
 
         # discriminator
+        last_sig = True if adv_loss == "log" else False
         self.discriminator = Discriminator(
             self.config.img_channels, 
             self.config.h_channels, 
             self.config.img_dim,
             activation=self.config.activation,
             batch_norm=self.config.batch_norm,
-            n_layers=self.config.n_layers            
+            n_layers=self.config.n_layers, 
+            last_sigmoid=last_sig
         )
 
         # modules for param groups
@@ -266,7 +296,10 @@ class VAEGAN(nn.Module):
         x_gen = self.generate(x.shape[0])
         sr = self.discriminator(x_rec)
         sg = self.discriminator(x_gen)
-        gl = vaegan_generator_loss(sg, sr)
+        if self.adv_loss == "log":
+            gl = vaegan_generator_loss(sg, sr)  
+        else:
+            gl = vaegan_generator_loss_lin(sg, sr, self.device)
         # dec update
         self.opts.zero_grad(['decoder'])
         decl = self.config.fm_alpha*fml + gl
@@ -278,7 +311,10 @@ class VAEGAN(nn.Module):
         st = self.discriminator(x)
         srd = self.discriminator(x_rec.detach())
         sgd = self.discriminator(x_gen.detach())
-        dl = vaegan_discriminator_loss(st, sgd, srd)
+        if self.adv_loss == "log":
+            dl = vaegan_discriminator_loss(st, sgd, srd)
+        else:
+            dl = vaegan_discriminator_loss_lin(st, sgd, srd, self.device)
         # disc update
         self.opts.zero_grad(['discriminator'])
         dl.backward(retain_graph=False)

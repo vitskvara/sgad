@@ -57,7 +57,9 @@ def discriminator_loss_lin(st, sg, device):
     of the discriminator and we push it as close to 1 as possible for real samples and to 0 for fakes.
     """
     lf = torch.nn.MSELoss()
-    return (lf(st.squeeze(), torch.ones(len(st),).to(device)) + lf(sg.squeeze(), torch.zeros(len(st),).to(device)))/2
+    o = torch.ones(len(st),).to(device)
+    z = torch.zeros(len(sg),).to(device)
+    return (lf(st.squeeze(), o) + lf(sg.squeeze(), z))/2
     
 class GAN(nn.Module):
     def __init__(self, 

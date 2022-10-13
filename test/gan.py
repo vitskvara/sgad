@@ -151,8 +151,8 @@ class TestAll(unittest.TestCase):
 		model.eval()
 		# generate
 		_x = model.generate(n)
-				self.assertTrue(_x.shape[0] == n)
-				self.assertTrue(_x.shape == x.shape)
+		self.assertTrue(_x.shape[0] == n)
+		self.assertTrue(_x.shape == x.shape)
 
 		# scores
 		disc_score = model.predict(tst_X, workers=2)
