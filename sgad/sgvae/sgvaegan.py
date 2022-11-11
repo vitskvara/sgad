@@ -19,7 +19,7 @@ from sgad.utils import Optimizers, Subset
 from sgad.sgvae import SGVAE, feature_matching_loss
 from sgad.utils import save_cfg, Optimizers, compute_auc, Patch2Image, RandomCrop
 from sgad.sgvae.utils import rp_trick, batched_score, logpx, get_float, Mean, logreg_fit, logreg_prob
-from sgad.sgvae.utils import Discriminator, create_score_loader, subsample_same
+from sgad.sgvae.utils import Discriminator, create_score_loader, subsample_same, log_jacodet
 from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossText
 from sgad.cgn.models.cgn import Reshape, init_net
 from sgad.sgvae.vaegan import vaegan_generator_loss, vaegan_discriminator_loss
@@ -505,7 +505,25 @@ class SGVAEGAN(nn.Module):
         loader = create_score_loader(X, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
         return batched_score(self.fm_score, loader, self.device, **kwargs)
-    
+
+    def log_jacodet(self, x):
+        zs = self.encode_mean_batched(x)
+        # we need one input to the differentiated function, so we are gonna cat and then split the zs again
+        z = torch.concat([torch.tensor(y) for y in zs],1).to(self.device)
+        # since the basic log_jacodet is computed per sample, write this per sample as well
+        def f(z):
+            zdim = int(z.shape[0]/3)
+            zs = (z[0:zdim], z[zdim:2*zdim], z[zdim*2:])
+            return self.decode_image_mean(zs)
+
+        return log_jacodet(f,z)
+        
+    def log_jacodet_score(self, x, workers=1, batch_size=None, **kwargs):
+        loader = create_score_loader(x, batch_size if batch_size is not None else self.config.batch_size, 
+            workers=workers, shuffle=False)
+        return batched_score(self.log_jacodet, loader, self.device, **kwargs)
+
+    # the predict method has to be written awkwardly like this for compatibility with the julia infrastructure
     def predict(self, X, score_type="discriminator", **kwargs):
         # if score type not given, try the best score as it was fitted
         if score_type == None and self.best_score_type == None:
@@ -519,6 +537,8 @@ class SGVAEGAN(nn.Module):
             return self.feature_matching_score(X, **kwargs)
         elif score_type == "reconstruction":
             return self.reconstruction_score(X, **kwargs)
+        elif score_type == "log_jacodet":
+            return self.log_jacodet_score(X, **kwargs)
         else:
             raise ValueError(f"Unknown score type {score_type}")
 

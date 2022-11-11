@@ -212,3 +212,27 @@ def subsample_same(X,y,n):
     X_sub = np.concatenate((X[y == 0][inds0], X[y == 1][inds1]), 0)
     y_sub = np.concatenate((y[y == 0][inds0], y[y == 1][inds1]), 0)
     return X_sub, y_sub
+
+# stuff for jacobian decomposition score
+# see https://arxiv.org/abs/1905.11890
+# jacodeco(m,x) = (lpx(m,x) .+ lpz(m,x) .- lJacoDet(m,x));
+def log_jacodet_vec(f,x):
+    """
+        log_jacodet_vec(f,x) - logarithm of the determinant of the jacobian df/dx for vector x.
+    """
+    J = torch.autograd.functional.jacobian(f, x)
+    J = J.reshape(-1,x.shape[-1])
+    U, S, V = torch.linalg.svd(J)
+    JJ = 2.0*S.log().sum()
+    return JJ
+
+def log_jacodet(f,x):
+    """
+        log_jacodet(f,x) - logarithm of the determinant of the jacobian df/dx for a vector or a batch of vectors.
+    """
+    if x.ndim == 2:
+        return torch.tensor([log_jacodet_vec(f,_x) for _x in x])
+    elif x.ndim == 1:
+        return log_jacodet_vec(f,x)
+    else:
+        raise ValueError("log_jacodet only implemented for vectors and matrices.")
