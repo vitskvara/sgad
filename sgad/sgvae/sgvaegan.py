@@ -507,7 +507,7 @@ class SGVAEGAN(nn.Module):
         return batched_score(self.fm_score, loader, self.device, **kwargs)
 
     def log_jacodet(self, x):
-        zs = self.encode_mean_batched(x)
+        zs = [z[0] for z in self.encode(x)]
         # we need one input to the differentiated function, so we are gonna cat and then split the zs again
         z = torch.concat([torch.tensor(y) for y in zs],1).to(self.device)
         # since the basic log_jacodet is computed per sample, write this per sample as well
