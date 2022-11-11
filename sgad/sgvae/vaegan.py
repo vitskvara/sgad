@@ -24,7 +24,7 @@ from sgad.cgn.models.cgn import Reshape, init_net
 
 def vaegan_generator_loss(sg, sr):
     """
-    vaegan_generator_loss(scores_generated)
+    vaegan_generator_loss(scores_generated, scores_reconstructed)
     
     mean(log(sg) + log(sr)) = E[log(D(G(z))) + log(D(G(E(x))))]
     """
@@ -32,7 +32,7 @@ def vaegan_generator_loss(sg, sr):
 
 def vaegan_discriminator_loss(st, sg, sr):
     """
-    vaegan_discriminator_loss(scores_true, scores_generated)
+    vaegan_discriminator_loss(scores_true, scores_generated, scores_reconstructed)
     
     mean(log(st) + log(1-sg) + log(1-sr))  = E[log(D(x)) + (log(1-D(G(z)))) + (log(1-D(G(E(x)))))]
     """
