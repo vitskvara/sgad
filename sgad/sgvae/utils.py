@@ -174,7 +174,7 @@ def batched_score(scoref, loader, device, *args, **kwargs):
 def create_score_loader(X, batch_size, workers=1, shuffle=False):
     # create the loader
     y = torch.zeros(X.shape[0]).long()
-    X = X.clone().detach() if (type(torch.tensor(X)) == torch.Tensor) else X
+    X = X.clone().detach() if (type(X) == torch.Tensor) else X
     loader = DataLoader(Subset(torch.tensor(X).float(), y), 
         batch_size=batch_size, 
         shuffle=shuffle, 
