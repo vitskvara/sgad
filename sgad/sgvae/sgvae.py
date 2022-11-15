@@ -111,7 +111,7 @@ class SGVAE(nn.Module):
             self.log_var_x_global = None
             init_net(self.log_var_net_x, init_type=self.config.init_type, init_gain=self.config.init_gain)
         elif log_var_x_estimate_top == "global":
-            self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0])) # nn.Parameter(torch.Tensor([0.0]))
+            self.log_var_x_global = nn.Parameter(torch.Tensor([-1.0]).float()) # nn.Parameter(torch.Tensor([0.0]))
             self.log_var_net_x = self.get_global_var_x
         else:
             warnings.warn(f"log_var_x_estimate_top {log_var_x_estimate_top} not known, you should set .log_var_net_x with a callable function")

@@ -174,6 +174,7 @@ def batched_score(scoref, loader, device, *args, **kwargs):
 def create_score_loader(X, batch_size, workers=1, shuffle=False):
     # create the loader
     y = torch.zeros(X.shape[0]).long()
+    X = X.clone().detach() if (type(torch.tensor(X)) == torch.Tensor) else X
     loader = DataLoader(Subset(torch.tensor(X).float(), y), 
         batch_size=batch_size, 
         shuffle=shuffle, 
@@ -220,7 +221,7 @@ def log_jacodet_vec(f,x):
     """
         log_jacodet_vec(f,x) - logarithm of the determinant of the jacobian df/dx for vector x.
     """
-    J = torch.autograd.functional.jacobian(f, x, vectorize=True)
+    J = torch.autograd.functional.jacobian(f, x, vectorize=True, strategy="forward-mode")
     J = J.reshape(-1,x.shape[-1])
     U, S, V = torch.linalg.svd(J)
     JJ = S.log().sum()

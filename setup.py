@@ -51,7 +51,7 @@ setup(
         "terminado==0.9.2",
         "tifffile==2021.1.14",
         "torchsummary==1.5.1",
-        "torch",
+        "torch>=1.13",
         "torchvision",
         "tqdm==4.56.0",
         "urllib3==1.26.2",

@@ -215,7 +215,7 @@ class TestParams(unittest.TestCase):
         self.assertTrue(all_equal_params(model.log_var_net_z, _model.log_var_net_z))
         self.assertTrue(all_equal_params(model.mu_net_x, _model.mu_net_x))
         # now change one param
-        model.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        model.log_var_x_global.data=torch.tensor([-3]).float().to(model.device)
         self.assertTrue(not all_equal_params(model, _model))
         self.assertTrue(not all_nonequal_params(model, _model))
         # construct the model again and train it for one epoch
