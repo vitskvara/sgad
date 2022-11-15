@@ -323,11 +323,11 @@ class TestParams(unittest.TestCase):
         # check the equality of params
         self.assertTrue(not all_equal_params(model, _model))
         self.assertTrue(not all_nonequal_params(model, _model)) # the global log_var_x are not trained
-        model.vae_shape.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        model.vae_shape.log_var_x_global.data=torch.tensor([-3]).float().to(model.device)
         self.assertTrue(not all_nonequal_params(model, _model))
-        model.vae_background.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        model.vae_background.log_var_x_global.data=torch.tensor([-3]).float().to(model.device)
         self.assertTrue(not all_nonequal_params(model, _model))
-        model.vae_foreground.log_var_x_global.data=torch.tensor([-3]).to(model.device)
+        model.vae_foreground.log_var_x_global.data=torch.tensor([-3]).float().to(model.device)
         # now the rest of the params must have changed
         #self.assertTrue(all_nonequal_params(model, _model))
         self.assertTrue(not model.vae_shape.log_var_x_global.data == _model.vae_shape.log_var_x_global.data)
