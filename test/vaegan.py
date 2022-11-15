@@ -21,7 +21,7 @@ data = sgad.utils.load_wildlife_mnist_split(ac, seed, denormalize = False)
 
 def warn_test(condition):
     if not condition:
-        warning("condition not met, but no need to throw an error.")
+        warnings.warn("condition not met, but no need to throw an error.")
 
 def test_args(X, **kwargs):
     n = 10

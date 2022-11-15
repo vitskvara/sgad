@@ -220,10 +220,10 @@ def log_jacodet_vec(f,x):
     """
         log_jacodet_vec(f,x) - logarithm of the determinant of the jacobian df/dx for vector x.
     """
-    J = torch.autograd.functional.jacobian(f, x)
+    J = torch.autograd.functional.jacobian(f, x, vectorize=True)
     J = J.reshape(-1,x.shape[-1])
     U, S, V = torch.linalg.svd(J)
-    JJ = 2.0*S.log().sum()
+    JJ = S.log().sum()
     return JJ
 
 def log_jacodet(f,x):
