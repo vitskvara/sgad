@@ -521,7 +521,7 @@ class SGVAEGAN(nn.Module):
     def log_jacodet_score(self, x, workers=1, batch_size=None, **kwargs):
         loader = create_score_loader(x, batch_size if batch_size is not None else self.config.batch_size, 
             workers=workers, shuffle=False)
-        return - batched_score(self.log_jacodet, loader, self.device, **kwargs)
+        return batched_score(self.log_jacodet, loader, self.device, **kwargs)
 
     # the predict method has to be written awkwardly like this for compatibility with the julia infrastructure
     def predict(self, X, score_type="discriminator", **kwargs):

@@ -224,7 +224,7 @@ def log_jacodet_vec(f,x):
     J = torch.autograd.functional.jacobian(f, x, vectorize=True, strategy="forward-mode")
     J = J.reshape(-1,x.shape[-1])
     U, S, V = torch.linalg.svd(J)
-    JJ = S.log().sum()
+    JJ = 2*S.log().sum()
     return JJ
 
 def log_jacodet(f,x):
