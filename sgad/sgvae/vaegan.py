@@ -34,7 +34,7 @@ def vaegan_discriminator_loss(st, sg, sr):
     """
     vaegan_discriminator_loss(scores_true, scores_generated, scores_reconstructed)
     
-    mean(log(st) + log(1-sg) + log(1-sr))  = E[log(D(x)) + (log(1-D(G(z)))) + (log(1-D(G(E(x)))))]
+    -mean(log(st) + log(1-sg) + log(1-sr))  = -E[log(D(x)) + (log(1-D(G(z)))) + (log(1-D(G(E(x)))))]
     """
     return - torch.sum(torch.log(st + 1e-8) + torch.log(1 - sg + 1e-8) + torch.log(1 - sr + 1e-8))  / 3.0
 
