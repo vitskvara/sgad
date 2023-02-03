@@ -38,4 +38,4 @@ data = load_wildlife_mnist_split(normal_class, seed=seed, train=True, denormaliz
 
 # use the defaults for training of wildlife mnist
 model = SGVAEGAN(zdim=args.zdim, init_seed=args.weight_seed)
-model.fit(tr_x, n_epochs=n_epochs, save_path=outpath)
+model.fit(tr_x, n_epochs=n_epochs, save_path=outpath, save_weights=False)
