@@ -22,9 +22,9 @@ parser.add_argument('--n_epochs', type=int, default=100, help="no. epochs")
 args = parser.parse_args()
 
 # setup
-normal_class = args['normal_class']
-seed = args['split_seed']
-n_epochs = args['n_epochs']
+normal_class = args.normal_class
+seed = args.split_seed
+n_epochs = args.n_epochs
 
 # setup path for the model to be saved
 outpath = Path(datadir("test_models/"))
@@ -37,5 +37,5 @@ data = load_wildlife_mnist_split(normal_class, seed=seed, train=True, denormaliz
 (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c) = data
 
 # use the defaults for training of wildlife mnist
-model = SGVAEGAN(zdim=args['z_dim'], init_seed=args['weight_seed'])
+model = SGVAEGAN(zdim=args.z_dim, init_seed=args.weight_seed)
 model.fit(tr_x, n_epochs=n_epochs, save_path=outpath)
