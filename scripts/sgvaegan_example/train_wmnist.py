@@ -4,20 +4,27 @@ import os
 import torch
 from torch import nn
 from pathlib import Path
+import argparse
 
 from sgad.sgvae import SGVAEGAN
 from sgad.utils import load_wildlife_mnist_split, datadir
 from sgad.utils import save_cfg, load_cfg
 
-#sgad.utils.save_resize_img(torch.tensor(data_anomalous[:5]),"test.png",1)
-# 32131929, 35044565
-from sgad.utils import train_val_test_inds, split_data_labels
-
+# arg parser
+parser = argparse.ArgumentParser(
+                    prog = 'Train a basic SGVAEGAN model on Wildlife MNIST data.')
+parser.add_argument('--normal_class', type=int, default=0, help="label of the normal class (0-9)")
+parser.add_argument('--weight_seed', type=int, default=35044565, 
+	help="seed with which the model weights are initialized")
+parser.add_argument('--split_seed', type=int, default=4, help="seed with which the data is split")
+parser.add_argument('--zdim', type=int, default=32,	help="latent space size")
+parser.add_argument('--n_epochs', type=int, default=100, help="no. epochs")
+args = parser.parse_args()
 
 # setup
-normal_class = 0
-seed = 4
-n_epochs = 100
+normal_class = args['normal_class']
+seed = args['split_seed']
+n_epochs = args['n_epochs']
 
 # setup path for the model to be saved
 outpath = Path(datadir("test_models/"))
@@ -30,5 +37,5 @@ data = load_wildlife_mnist_split(normal_class, seed=seed, train=True, denormaliz
 (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c) = data
 
 # use the defaults for training of wildlife mnist
-model = SGVAEGAN(init_seed=35044565)
-model.fit(tr_x, n_epochs=100, save_path=outpath)
+model = SGVAEGAN(zdim=args['z_dim'], init_seed=args['weight_seed'])
+model.fit(tr_x, n_epochs=n_epochs, save_path=outpath)
