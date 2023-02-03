@@ -57,6 +57,6 @@ setup(
         "urllib3==1.26.2",
         "webencodings==0.5.1",
         "yacs==0.1.8",
-        "sklearn>=0.0"
+        "scikit-learn>=1.0"
     ]
 )

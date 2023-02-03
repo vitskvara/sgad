@@ -4,7 +4,7 @@ This project aims to detect anomalies in images on three different levels - shap
 ![SGVAEGAN model](sgvaegan.png)
 
 # Instalation
-Preferably into a specific python environment.
+Preferably into a specific python environment. Built on Python 3.9.6
 ```
 git clone https://github.com/vitskvara/sgad.git
 cd sgad
@@ -12,6 +12,8 @@ pip install .
 ```
 
 # Test run
+
+
 This tests basic one class runs.
 ```
 cd sgad/test
