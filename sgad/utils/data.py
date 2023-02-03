@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision.utils import save_image
 from sklearn import metrics
+import urllib.request
 
 def check_create_datadir():
     sgaddf = os.path.join(os.path.expanduser("~"), ".sgad_datapath")
@@ -40,33 +41,52 @@ def load_cifar10():
     labels = np.concatenate([x[b'labels'] for x in all_data])
     return data, labels
 
+def _load_wmnist_part(fname, path):
+    def show_progress(block_num, block_size, total_size):
+        print("Downloaded "+str(round(block_num * block_size / total_size *100,2))+"%", end="\r")
+    f = os.path.join(path, fname)
+    if not os.path.isfile(f):
+        zenodo_path = "https://zenodo.org/record/7602025/files/"
+        print(f"{f} not found, should it be downloaded? (y/n)")
+        response = input()
+        if response in ["y", "Y"]:
+            urllib.request.urlretrieve(os.path.join(zenodo_path, fname), f, show_progress)
+        else:
+            raise ValueError("Requested data not available.")
+    return np.load(f)
+
 def load_wildlife_mnist(train=True, denormalize=True):
     path = datadir("raw_datasets/wildlife_MNIST")
     if train:
-        data = np.load(os.path.join(path, "data.npy"))
-        labels = np.load(os.path.join(path, "labels.npy"))
+        data = _load_wmnist_part("data.npy", path)
+        labels = _load_wmnist_part("labels.npy", path)
     else:
-        data = np.load(os.path.join(path, "data_test.npy"))
-        labels = np.load(os.path.join(path, "labels_test.npy"))
+        data = _load_wmnist_part("data_test.npy", path)
+        labels = _load_wmnist_part("labels_test.npy", path)
     if denormalize:
         data = data*0.5 + 0.5
     return data, labels
 
-def load_wildlife_mnist_split(anomaly_class, seed=1, train=True, denormalize=True):
+def load_wildlife_mnist_split(normal_class, seed=1, train=True, denormalize=True):
     path = datadir("raw_datasets/wildlife_MNIST/training_splits")
-    ac = anomaly_class
     if train:
-        tr_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_data.npy'))
-        tr_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_labels.npy'))
-        tr_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_train_classes.npy'))
+        tr_f = os.path.join(path, f'ac={normal_class}_seed={seed}_train_data.npy')
+        if os.path.isfile(tr_f):
+            tr_x = np.load(tr_f)
+            tr_y = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_train_labels.npy'))
+            tr_c = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_train_classes.npy'))
 
-        val_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_data.npy'))
-        val_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_labels.npy'))
-        val_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_validation_classes.npy'))
+            val_x = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_validation_data.npy'))
+            val_y = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_validation_labels.npy'))
+            val_c = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_validation_classes.npy'))
 
-        tst_x = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_data.npy'))
-        tst_y = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_labels.npy'))
-        tst_c = np.load(os.path.join(path, f'ac={ac}_seed={seed}_test_classes.npy'))
+            tst_x = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_test_data.npy'))
+            tst_y = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_test_labels.npy'))
+            tst_c = np.load(os.path.join(path, f'ac={normal_class}_seed={seed}_test_classes.npy'))
+        else:
+            data, labels = load_wildlife_mnist(train=True, denormalize=False)
+            res = basic_data_split(data, labels, normal_class, seed=seed)
+            (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c) = res
     else:
         raise ValueError("train=False not implemented")
     if denormalize:
@@ -118,6 +138,26 @@ def split_data_labels(data, labels, split_inds):
     tr_labels, val_labels, tst_labels = labels[tr_inds], labels[val_inds], labels[tst_inds]
 
     return (tr_data, tr_labels), (val_data, val_labels), (tst_data, tst_labels)
+
+def basic_data_split(data, labels, normal_class, seed=None):
+    """
+    Normal data is split 60/20/20, anomalous 0/50/50.
+    """
+    normal_inds = labels == normal_class
+    normal_split_inds = train_val_test_inds(np.arange(sum(normal_inds)), seed=seed)
+    anomalous_split_inds = train_val_test_inds(np.arange(len(normal_inds)-sum(normal_inds)), (0,0.5,0.5), seed=seed)
+    data_labels_normal = split_data_labels(data[normal_inds], labels[normal_inds], normal_split_inds)
+    data_labels_anomalous = split_data_labels(data[~normal_inds], labels[~normal_inds], anomalous_split_inds)
+    tr_x = np.concatenate((data_labels_normal[0][0], data_labels_anomalous[0][0]),0)
+    val_x = np.concatenate((data_labels_normal[1][0], data_labels_anomalous[1][0]),0)
+    tst_x = np.concatenate((data_labels_normal[2][0], data_labels_anomalous[2][0]),0)
+    tr_c = np.concatenate((data_labels_normal[0][1], data_labels_anomalous[0][1]),0)
+    val_c = np.concatenate((data_labels_normal[1][1], data_labels_anomalous[1][1]),0)
+    tst_c = np.concatenate((data_labels_normal[2][1], data_labels_anomalous[2][1]),0)
+    tr_y = np.zeros(len(tr_c))
+    val_y = np.concatenate((np.zeros(len(data_labels_normal[1][1])), np.ones(len(data_labels_anomalous[1][1]))),0)
+    tst_y = np.concatenate((np.zeros(len(data_labels_normal[2][1])), np.ones(len(data_labels_anomalous[2][1]))),0)
+    return (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c)
 
 def compute_auc(labels, scores, pos_label=1):
     fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=pos_label)
