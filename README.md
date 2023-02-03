@@ -12,12 +12,9 @@ pip install .
 ```
 
 # Test run
-
-
-This tests basic one class runs.
+This is a basic training run of the SGVAEGAN model. Note that the script will ask to download the Wildlife MNIST data if they are not present, which can otherwise be found at `https://zenodo.org/record/7602025`.
 ```
-cd sgad/test
-./train_cgn_cifar10.sh
-./train_cgn_other.sh
+cd scripts/sgvaegan_example
+python train_wmnist.py
 ```
 If you get `[SSL: CERTIFICATE_VERIFY_FAILED]` when the package tries to download the vgg16 weights, you can try to download them manually to the indicated directory, e.g. `wget https://download.pytorch.org/models/vgg16-397923af.pth ~/.cache/torch/hub/checkpoints`.
