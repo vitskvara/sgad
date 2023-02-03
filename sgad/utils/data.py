@@ -46,6 +46,7 @@ def _load_wmnist_part(fname, path):
         print("Downloaded "+str(round(block_num * block_size / total_size *100,2))+"%", end="\r")
     f = os.path.join(path, fname)
     if not os.path.isfile(f):
+        os.makedirs(path, exist_ok=True)
         zenodo_path = "https://zenodo.org/record/7602025/files/"
         print(f"{f} not found, should it be downloaded? (y/n)")
         response = input()
