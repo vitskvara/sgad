@@ -13,7 +13,7 @@ from sgad.utils import save_cfg, load_cfg
 # arg parser
 parser = argparse.ArgumentParser(
                     prog = 'Train a basic SGVAEGAN model on Wildlife MNIST data.')
-parser.add_argument('--normal_class', type=int, default=0, help="label of the normal class (0-9)")
+parser.add_argument('--normal_class', type=int, default=2, help="label of the normal class (0-9)")
 parser.add_argument('--weight_seed', type=int, default=35044565, 
 	help="seed with which the model weights are initialized")
 parser.add_argument('--split_seed', type=int, default=4, help="seed with which the data is split")
