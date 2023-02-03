@@ -14,8 +14,6 @@ from sgad.utils import save_cfg, load_cfg
 parser = argparse.ArgumentParser(
                     prog = 'Train a basic SGVAEGAN model on Wildlife MNIST data.')
 parser.add_argument('--normal_class', type=int, default=2, help="label of the normal class (0-9)")
-parser.add_argument('--weight_seed', type=int, default=35044565, 
-	help="seed with which the model weights are initialized")
 parser.add_argument('--split_seed', type=int, default=4, help="seed with which the data is split")
 parser.add_argument('--zdim', type=int, default=32,	help="latent space size")
 parser.add_argument('--n_epochs', type=int, default=100, help="no. epochs")
@@ -37,5 +35,5 @@ data = load_wildlife_mnist_split(normal_class, seed=seed, train=True, denormaliz
 (tr_x, tr_y, tr_c), (val_x, val_y, val_c), (tst_x, tst_y, tst_c) = data
 
 # use the defaults for training of wildlife mnist
-model = SGVAEGAN(zdim=args.zdim, init_seed=args.weight_seed)
+model = SGVAEGAN(zdim=args.zdim)
 model.fit(tr_x, n_epochs=n_epochs, save_path=outpath, save_weights=False)
