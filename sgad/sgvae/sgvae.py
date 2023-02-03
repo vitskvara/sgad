@@ -611,15 +611,10 @@ class SGVAE(nn.Module):
 
     def save_sample_images(self, x, sample_path, batches_done, n_cols=3):
         """Saves a grid of generated and reconstructed digits"""
-        x_gen = [self.generate(10).to('cpu') for _ in range(n_cols)]
-        x_gen = torch.concat(x_gen, 0)
         x_gen_mean = [self.generate_mean(10).to('cpu') for _ in range(n_cols)]
         x_gen_mean = torch.concat(x_gen_mean, 0)
         _x = torch.tensor(x).to(self.device).float()
         mask, background, foreground = self(_x)
-        x_reconstructed = self.reconstruct(_x)
-        x_reconstructed = torch.concat((x_reconstructed, mask, foreground, background), 0)
-        x_reconstructed = x_reconstructed.to('cpu')
         x_reconstructed_mean = self.reconstruct_mean(_x)
         x_reconstructed_mean = torch.concat((x_reconstructed_mean, mask, foreground, background), 0)
         x_reconstructed_mean = x_reconstructed_mean.to('cpu')
@@ -630,10 +625,8 @@ class SGVAE(nn.Module):
             save_image(x.data, path, nrow=n_cols, normalize=True, padding=2)
 
         Path(sample_path).mkdir(parents=True, exist_ok=True)
-        save(x_gen.data, f"{sample_path}/0_{batches_done:d}_x_gen.png", n_cols, sz=self.config.img_dim)
-        save(x_gen_mean.data, f"{sample_path}/1_{batches_done:d}_x_gen_mean.png", n_cols, sz=self.config.img_dim)
-        save(torch.concat((_x, x_reconstructed), 0).data, f"{sample_path}/2_{batches_done:d}_x_reconstructed.png", n_cols*2, sz=self.config.img_dim)
-        save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/3_{batches_done:d}_x_reconstructed_mean.png", n_cols*2, sz=self.config.img_dim)
+        save(x_gen_mean.data, f"{sample_path}/x_gen_mean_{batches_done:d}.png", n_cols, sz=self.config.img_dim)
+        save(torch.concat((_x, x_reconstructed_mean), 0).data, f"{sample_path}/x_reconstructed_mean_{batches_done:d}.png", n_cols*2, sz=self.config.img_dim)
 
     # predict funs
     def predict(self, X, *args, score_type="logpx", latent_score_type="normal", probability=False,
