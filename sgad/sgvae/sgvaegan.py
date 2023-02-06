@@ -105,7 +105,7 @@ class SGVAEGAN(nn.Module):
         self.setup_opts()
 
         # alphas, logistic regression and knn models for alpha prediction
-        self.set_alpha(alpha, alpha_score_type=None)
+        self.set_alpha(alpha)
         self.lr_model = None
         self.knn_models = None
 
@@ -567,10 +567,9 @@ class SGVAEGAN(nn.Module):
         self.discriminator = self.discriminator.to(device)
         self = self.to(device)
 
-    def set_alpha(self, alpha, alpha_score_type):
+    def set_alpha(self, alpha):
         if alpha is None:
             self.alpha = None
-            self.alpha_score_type = None
             return
 
         if not len(alpha) == 5:
