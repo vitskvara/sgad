@@ -24,6 +24,8 @@ from sgad.shared.losses import BinaryLoss, MaskLoss, PerceptualLoss, PercLossTex
 from sgad.cgn.models.cgn import Reshape, init_net
 from sgad.sgvae.vaegan import vaegan_generator_loss, vaegan_discriminator_loss
 from sgad.sgvae.vaegan import vaegan_generator_lin_loss, vaegan_discriminator_lin_loss
+from sklearn.neighbors import NearestNeighbors
+from sgad.sgvae import RobustLogisticRegression
 
 class SGVAEGAN(nn.Module):
     """SGVAEGAN(**kwargs)
@@ -102,8 +104,10 @@ class SGVAEGAN(nn.Module):
         # optimizer
         self.setup_opts()
 
-        # alphas for joint prediction
+        # alphas, logistic regression and knn models for alpha prediction
         self.set_alpha(alpha, alpha_score_type=None)
+        self.lr_model = None
+        self.knn_models = None
 
         # reset seed
         torch.random.seed()
@@ -569,9 +573,55 @@ class SGVAEGAN(nn.Module):
             self.alpha_score_type = None
             return
 
-        if not len(alpha) == 6:
-            raise ValueError("given alpha must be a vector of length 6")
-        self.alpha = np.array(alpha).reshape(6,)
+        if not len(alpha) == 5:
+            raise ValueError("given alpha must be a vector of length 5")
+        self.alpha = np.array(alpha).reshape(5,)
+
+    def fit_alpha(self, X, X_val, y_val, k, 
+            beta0=10.0, 
+            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
+            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
+        ):
+        """Fit the alpha params using unlabeled train data X and labeled validation data."""
+        # construct the knn models and fit them
+        tr_encodings = self.encode_mean_batched(X)
+        self.knn_models = [NearestNeighbors(n_neighbors=k) for _ in range(3)]
+        [m.fit(encodings, tr_y) for (m,encodings) in zip(self.knn_models, tr_encodings)]
+        def knn_score(knn_model, x):
+            return knn_model.kneighbors(x)[0].mean(1)
+        
+        # get the inputs for the robust regression
+        rec_scores = self.reconstruction_score(X_val)
+        disc_scores = self.discriminator_score(X_val)
+        val_encodings = self.encode_mean_batched(X_val)
+        knn_scores = [knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, val_encodings)]
+        val_scores = np.vstack((rec_scores, disc_scores, *knn_scores)).transpose()
+
+        # now fit the robust regression
+        beta = beta0/sum(val_y)
+        self.lr_model = RobustLogisticRegression(val_scores.shape[1], alpha=init_alpha, beta=beta, 
+            alpha0=alpha0)
+        self.lr_model.fit(val_scores, val_y, scale=True, early_stopping=True)
+        alpha = self.lr_model.alpha.detach().numpy()
+        self.set_alpha(alpha)
+        return alpha
+
+    def predict_with_alpha(self, X):
+        # first ensure that the knn models and logreg models are fitted
+        if self.knn_models is None:
+            raise ValueError("The knn models are not fitted, call .fit_alpha(...) first.")
+        if self.lr_model is None:
+            raise ValueError("The logistic regression model is not fitted, call .fit_alpha(...) first.")
+
+        # compute encodings and the rest of the scores
+        encodings = self..encode_mean_batched(X)
+        rec_scores = self.reconstruction_score(X)
+        disc_scores = self.discriminator_score(X)
+        knn_scores = [knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, encodings)]
+        all_scores = np.vstack((rec_scores, disc_scores, *knn_scores)).transpose()
+        all_scores = self.lr_model.scaler_transform(all_scores)
+        all_scores_alpha = np.matmul(all_scores, self.alpha)
+        return all_scores_alpha
 
     def cpu_copy(self):
         cp = SGVAEGAN(**self.config, device="cpu")
