@@ -577,6 +577,9 @@ class SGVAEGAN(nn.Module):
             raise ValueError("given alpha must be a vector of length 5")
         self.alpha = np.array(alpha).reshape(5,)
 
+    def knn_score(self, knn_model, x):
+            return knn_model.kneighbors(x)[0].mean(1)
+        
     def fit_alpha(self, X, X_val, y_val, k, 
             beta0=10.0, 
             alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
@@ -587,14 +590,12 @@ class SGVAEGAN(nn.Module):
         tr_encodings = self.encode_mean_batched(X)
         self.knn_models = [NearestNeighbors(n_neighbors=k) for _ in range(3)]
         [m.fit(encodings) for (m, encodings) in zip(self.knn_models, tr_encodings)]
-        def knn_score(knn_model, x):
-            return knn_model.kneighbors(x)[0].mean(1)
         
         # get the inputs for the robust regression
         rec_scores = self.reconstruction_score(X_val)
         disc_scores = self.discriminator_score(X_val)
         val_encodings = self.encode_mean_batched(X_val)
-        knn_scores = [knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, val_encodings)]
+        knn_scores = [self.knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, val_encodings)]
         val_scores = np.vstack((rec_scores, disc_scores, *knn_scores)).transpose()
 
         # now fit the robust regression
@@ -617,7 +618,7 @@ class SGVAEGAN(nn.Module):
         encodings = self.encode_mean_batched(X)
         rec_scores = self.reconstruction_score(X)
         disc_scores = self.discriminator_score(X)
-        knn_scores = [knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, encodings)]
+        knn_scores = [self.knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, encodings)]
         all_scores = np.vstack((rec_scores, disc_scores, *knn_scores)).transpose()
         all_scores = self.lr_model.scaler_transform(all_scores)
         all_scores_alpha = np.matmul(all_scores, self.alpha)
