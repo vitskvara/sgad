@@ -25,7 +25,7 @@ from sgad.cgn.models.cgn import Reshape, init_net
 from sgad.sgvae.vaegan import vaegan_generator_loss, vaegan_discriminator_loss
 from sgad.sgvae.vaegan import vaegan_generator_lin_loss, vaegan_discriminator_lin_loss
 from sklearn.neighbors import NearestNeighbors
-from sgad.sgvae import RobustLogisticRegression
+from .robust_lr import RobustLogisticRegression
 
 class SGVAEGAN(nn.Module):
     """SGVAEGAN(**kwargs)
