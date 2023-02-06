@@ -614,7 +614,7 @@ class SGVAEGAN(nn.Module):
             raise ValueError("The logistic regression model is not fitted, call .fit_alpha(...) first.")
 
         # compute encodings and the rest of the scores
-        encodings = self..encode_mean_batched(X)
+        encodings = self.encode_mean_batched(X)
         rec_scores = self.reconstruction_score(X)
         disc_scores = self.discriminator_score(X)
         knn_scores = [knn_score(m, encodings) for (m,encodings) in zip(self.knn_models, encodings)]
