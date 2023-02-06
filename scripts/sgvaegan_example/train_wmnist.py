@@ -53,11 +53,11 @@ print(f"Feature-matching-based AUC={feature_matching_auc}")
 
 ############# ALPHA SCORES ###############
 k = 31
-print("Fitting the alpha params...")
+print("\nFitting the alpha params...\n")
 model.fit_alpha(tr_x, val_x, val_y, k, beta0=10.0, 
             alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
             init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
- 	)
+    )
 tst_scores_alpha = model.predict_with_alpha(model, tst_x)
 alpha_auc = roc_auc_score(tst_y, tst_scores_alpha)
 print(f"Alpha-based AUC={alpha_auc}")

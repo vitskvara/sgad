@@ -586,7 +586,7 @@ class SGVAEGAN(nn.Module):
         # construct the knn models and fit them
         tr_encodings = self.encode_mean_batched(X)
         self.knn_models = [NearestNeighbors(n_neighbors=k) for _ in range(3)]
-        [m.fit(encodings, tr_y) for (m,encodings) in zip(self.knn_models, tr_encodings)]
+        [m.fit(encodings) for (m, encodings) in zip(self.knn_models, tr_encodings)]
         def knn_score(knn_model, x):
             return knn_model.kneighbors(x)[0].mean(1)
         
@@ -598,10 +598,10 @@ class SGVAEGAN(nn.Module):
         val_scores = np.vstack((rec_scores, disc_scores, *knn_scores)).transpose()
 
         # now fit the robust regression
-        beta = beta0/sum(val_y)
+        beta = beta0/sum(y_val)
         self.lr_model = RobustLogisticRegression(val_scores.shape[1], alpha=init_alpha, beta=beta, 
             alpha0=alpha0)
-        self.lr_model.fit(val_scores, val_y, scale=True, early_stopping=True)
+        self.lr_model.fit(val_scores, y_val, scale=True, early_stopping=True)
         alpha = self.lr_model.alpha.detach().numpy()
         self.set_alpha(alpha)
         return alpha
