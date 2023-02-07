@@ -67,10 +67,14 @@ def test_alpha_fit(model, n1, k, tr_x, val_x, val_y, tst_x, tst_y):
 		val_y_less = np.hstack((val_y_less, np.ones(n1)))
 		print(f"\nFitting the alpha params with {n1} positive samples...")
 	# fit the alpha values
-	model.fit_alpha(tr_x, val_x_less, val_y_less, k, verb=False, beta0=10.0, 
-	            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
-	            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
-	    )
+	try:
+		model.fit_alpha(tr_x, val_x_less, val_y_less, k, verb=False, beta0=10.0, 
+		            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
+		            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
+		    )
+	except RuntimeError:
+		print("The logistic regression model failed to converge!")
+		return
 	tst_scores_alpha = model.predict_with_alpha(tst_x)
 	alpha_auc = roc_auc_score(tst_y, tst_scores_alpha)
 	print(f"Alpha-based AUC={alpha_auc}\n")
