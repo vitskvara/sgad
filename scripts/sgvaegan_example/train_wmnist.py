@@ -52,12 +52,25 @@ print(f"Reconstruction-based AUC={reconstruction_auc}")
 print(f"Feature-matching-based AUC={feature_matching_auc}")
 
 ############# ALPHA SCORES ###############
-k = 31
-print("\nFitting the alpha params...\n")
-model.fit_alpha(tr_x, val_x, val_y, k, beta0=10.0, 
-            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
-            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
-    )
-tst_scores_alpha = model.predict_with_alpha(tst_x)
-alpha_auc = roc_auc_score(tst_y, tst_scores_alpha)
-print(f"Alpha-based AUC={alpha_auc}")
+# this how the model prediction improves with more labeled samples
+def test_alpha_fit(model, n1, k, tr_x, val_x, val_y, tst_x, tst_y):
+	val_x_less = val_x[val_y == 0]
+	val_y_less = val_y[val_y == 0]
+	val_x_positive = val_x[val_y == 1][np.random.choice(np.arange(sum(val_y), dtype=int),n1,replace=False)]
+	val_x_less = np.concatenate((val_x_less, val_x_positive),0)
+	val_y_less = np.hstack((val_y_less, np.ones(n1)))
+	print(f"\nFitting the alpha params with {n1} positive samples...")
+	model.fit_alpha(tr_x, val_x_less, val_y_less, k, verb=False, beta0=10.0, 
+	            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
+	            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
+	    )
+	tst_scores_alpha = model.predict_with_alpha(tst_x)
+	alpha_auc = roc_auc_score(tst_y, tst_scores_alpha)
+	print(f"Alpha-based AUC={alpha_auc}\n")
+
+test_alpha_fit(model, 5, 1, tr_x, val_x, val_y, tst_x, tst_y)
+test_alpha_fit(model, 20, 3, tr_x, val_x, val_y, tst_x, tst_y)
+test_alpha_fit(model, 100, 5, tr_x, val_x, val_y, tst_x, tst_y)
+test_alpha_fit(model, 1000, 11, tr_x, val_x, val_y, tst_x, tst_y)
+test_alpha_fit(model, int(sum(val_y)), 31, tr_x, val_x, val_y, tst_x, tst_y)
+

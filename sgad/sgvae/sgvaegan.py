@@ -580,6 +580,7 @@ class SGVAEGAN(nn.Module):
             return knn_model.kneighbors(x)[0].mean(1)
         
     def fit_alpha(self, X, X_val, y_val, k, 
+            verb=True,
             beta0=10.0, 
             alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
             init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
@@ -601,7 +602,7 @@ class SGVAEGAN(nn.Module):
         beta = beta0/sum(y_val)
         self.lr_model = RobustLogisticRegression(val_scores.shape[1], alpha=init_alpha, beta=beta, 
             alpha0=alpha0)
-        self.lr_model.fit(val_scores, y_val, scale=True, early_stopping=True)
+        self.lr_model.fit(val_scores, y_val, scale=True, early_stopping=True, verb=verb)
         alpha = self.lr_model.alpha.detach().numpy()
         self.set_alpha(alpha)
         return alpha
