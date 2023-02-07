@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--normal_class', type=int, default=2, help="label of the normal class (0-9)")
 parser.add_argument('--split_seed', type=int, default=4, help="seed with which the data is split")
 parser.add_argument('--zdim', type=int, default=32,	help="latent space size")
-parser.add_argument('--n_epochs', type=int, default=50, help="no. epochs")
+parser.add_argument('--n_epochs', type=int, default=25, help="no. epochs")
 args = parser.parse_args()
 
 # setup
@@ -54,16 +54,19 @@ print(f"Feature-matching-based AUC={feature_matching_auc}")
 ############# ALPHA SCORES ###############
 # this how the model prediction improves with more labeled samples
 def test_alpha_fit(model, n1, k, tr_x, val_x, val_y, tst_x, tst_y):
+	# select the labeled data
 	if n1 is None:
 		val_x_less = val_x
 		val_y_less = val_y
+		print(f"\nFitting the alpha params with all positive samples...")
 	else:
 		val_x_less = val_x[val_y == 0]
 		val_y_less = val_y[val_y == 0]
 		val_x_positive = val_x[val_y == 1][np.random.choice(np.arange(sum(val_y), dtype=int),n1,replace=False)]
 		val_x_less = np.concatenate((val_x_less, val_x_positive),0)
 		val_y_less = np.hstack((val_y_less, np.ones(n1)))
-	print(f"\nFitting the alpha params with {n1} positive samples...")
+		print(f"\nFitting the alpha params with {n1} positive samples...")
+	# fit the alpha values
 	model.fit_alpha(tr_x, val_x_less, val_y_less, k, verb=False, beta0=10.0, 
 	            alpha0=np.array([1.0, 0, 0, 0, 0]), # sometimes this helps with convergence
 	            init_alpha = np.array([1.0, 1.0, 0, 0, 0]) 
