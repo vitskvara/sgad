@@ -76,5 +76,5 @@ test_alpha_fit(model, 5, 1, tr_x, val_x, val_y, tst_x, tst_y)
 test_alpha_fit(model, 20, 3, tr_x, val_x, val_y, tst_x, tst_y)
 test_alpha_fit(model, 100, 5, tr_x, val_x, val_y, tst_x, tst_y)
 test_alpha_fit(model, 1000, 11, tr_x, val_x, val_y, tst_x, tst_y)
-test_alpha_fit(model, int(sum(val_y)), 31, tr_x, val_x, val_y, tst_x, tst_y)
+test_alpha_fit(model, None, 31, tr_x, val_x, val_y, tst_x, tst_y)
 
